@@ -1,0 +1,27 @@
+/* Tạo file mới: src/components/VtuberModelDisplay.css */
+
+.vtuber-display {
+  width: 100%;
+  height: 100%;
+  background-color: #222;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.model-placeholder {
+  width: 100%;
+  height: 80%;
+  background-color: #111;
+  border: 2px dashed #555;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2em;
+  color: #777;
+}

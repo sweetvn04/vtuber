@@ -1,0 +1,56 @@
+/* src/App.css */
+
+/* Xóa bỏ margin, padding mặc định */
+body, html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: Arial, sans-serif;
+  /* background-color: #92d2f7; */
+  background-color: #b1e7d2;
+  overflow: hidden; /* Ngăn cuộn trang tổng */
+}
+
+.app-container {
+  display: flex; /* Bố cục chính: chia 2 cột */
+  width: 100vw; /* 100% chiều rộng màn hình */
+  height: 100vh; /* 100% chiều cao màn hình */
+}
+
+/* --- Nửa bên trái --- */
+.left-panel {
+  flex: 1; /* Chiếm 1 nửa (50%) */
+  display: flex;
+  flex-direction: column; /* Sắp xếp 2 phần trên-dưới */
+  padding: 10px;
+  gap: 10px; /* Tạo khoảng cách giữa camera và chat */
+  box-sizing: border-box;
+}
+
+.top-left {
+  /* Không cần set height, nó sẽ tự co theo nội dung (ô camera) */
+  display: flex;
+  /* Canh giữa ô camera nếu nó nhỏ hơn panel */
+  /* justify-content: center;  */ 
+  /* Hoặc canh bên trái: */
+  justify-content: flex-start;
+}
+
+.bottom-left {
+  /* Quan trọng: lấp đầy không gian còn lại */
+  flex-grow: 1; 
+  /* Đảm bảo nó không bị tràn nếu cửa sổ quá nhỏ */
+  min-height: 0; 
+}
+
+
+/* --- Nửa bên phải --- */
+.right-panel {
+  flex: 1; /* Chiếm 1 nửa (50%) */
+  padding: 10px;
+  box-sizing: border-box;
+  
+  /* Thêm đường viền trái để phân cách */
+  border-left: 2px solid #444;
+}

@@ -1,0 +1,73 @@
+/* Tạo file mới: src/components/ChatInterface.css */
+
+.chat-interface {
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* Sẽ lấp đầy không gian còn lại ở cột trái */
+  background-color: #282a36;
+  border-radius: 8px;
+  overflow: hidden; /* Giữ các góc tròn */
+}
+
+.message-list {
+  flex-grow: 1; /* Quan trọng: làm cho nó lấp đầy không gian */
+  overflow-y: auto; /* Cho phép cuộn khi có nhiều tin nhắn */
+  padding: 15px;
+}
+
+.message {
+  margin-bottom: 10px;
+  padding: 10px 15px;
+  border-radius: 18px;
+  max-width: 80%;
+  line-height: 1.4;
+}
+
+.message p {
+  margin: 0;
+}
+
+.message.user {
+  background-color: #6272a4;
+  color: #f8f8f2;
+  align-self: flex-end; /* Tin nhắn người dùng bên phải */
+  margin-left: auto; /* Đẩy nó sang phải */
+}
+
+.message.vtuber {
+  background-color: #44475a;
+  color: #f8f8f2;
+  align-self: flex-start; /* Tin nhắn AI bên trái */
+}
+
+.chat-input-form {
+  display: flex;
+  padding: 10px;
+  background-color: #21222c;
+  border-top: 1px solid #44475a;
+}
+
+.chat-input-form input {
+  flex-grow: 1;
+  border: none;
+  padding: 10px;
+  border-radius: 20px;
+  background-color: #f8f8f2;
+  color: #282a36;
+  margin-right: 10px;
+}
+
+.chat-input-form button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 20px;
+  background-color: #50fa7b;
+  color: #282a36;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.chat-input-form .voice-button {
+  background-color: #bd93f9;
+  margin-left: 5px;
+}
