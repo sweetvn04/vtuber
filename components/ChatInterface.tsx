@@ -11,9 +11,10 @@ interface ChatInterfaceProps {
     chatLog?: any[];
     onSendMessage?: (text: string) => void;
     disabled?: boolean;
+    isThinking?: boolean;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessage, disabled }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessage, disabled, isThinking }) => {
     const [input, setInput] = useState('');
     const messageEndRef = useRef<HTMLDivElement>(null);
 
@@ -32,22 +33,25 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
     return (
         <div className="flex flex-col h-full bg-gradient-to-br from-[#fff5f5] to-[#ffe8e8] rounded-2xl overflow-hidden">
             <div className="grow overflow-y-auto p-6 block scrollbar-thin scrollbar-thumb-[#fcb69f]/50 scrollbar-track-transparent">
-                {chatLog.length === 0 && (
-                    <div className="p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm bg-white text-[#2d3748] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-[#fcb69f]/20 rounded-bl-sm animate-in slide-in-from-bottom-2 duration-300">
-                        <p>Xin chào! Tôi có thể giúp gì cho bạn?</p>
-                    </div>
-                )}
+                <div className="p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm bg-white text-[#2d3748] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-[#fcb69f]/20 rounded-bl-sm animate-in slide-in-from-bottom-2 duration-300">
+                    <p>Hi there! How can I help you today?</p>
+                </div>
                 {chatLog.map((msg, index) => (
                     <div
                         key={index}
                         className={`p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm animate-in slide-in-from-bottom-2 duration-300 ${msg.role === 'assistant'
-                                ? 'bg-white text-[#2d3748] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-[#fcb69f]/20 rounded-bl-sm'
-                                : 'bg-gradient-to-br from-[#fcb69f] to-[#ffa07a] text-white self-end ml-auto shadow-[0_2px_12px_rgba(252,182,159,0.3)] rounded-br-sm'
+                            ? 'bg-white text-[#2d3748] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-[#fcb69f]/20 rounded-bl-sm'
+                            : 'bg-gradient-to-br from-[#fcb69f] to-[#ffa07a] text-white self-end ml-auto shadow-[0_2px_12px_rgba(252,182,159,0.3)] rounded-br-sm'
                             }`}
                     >
                         <p className="break-words m-0">{msg.content}</p>
                     </div>
                 ))}
+                {isThinking && (
+                    <div className="p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm bg-white text-[#718096] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-dashed border-[#fcb69f]/30 rounded-bl-sm animate-pulse flex items-center gap-2">
+                        <span>Hiyori is thinking... 💭</span>
+                    </div>
+                )}
                 <div ref={messageEndRef} />
             </div>
 

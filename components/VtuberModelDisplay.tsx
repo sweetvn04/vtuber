@@ -21,6 +21,9 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
     const audioObjRef = useRef<HTMLAudioElement | null>(null);
     const mouthIntervalRef = useRef<number | null>(null);
 
+    const currentMouthValue = useRef(0); // Lưu giá trị mở miệng cho vòng lặp Pixi
+    const isPlayingRef = useRef(false);   // Ref để tránh lỗi stale closure trong sự kiện Pixi
+
     const addLog = (message: string) => {
         setDebugInfo(prev => [...prev.slice(-10), `${new Date().toLocaleTimeString()}: ${message}`]);
     };
@@ -54,17 +57,28 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
         audio.onplay = () => {
             setIsPlaying(true);
+            isPlayingRef.current = true;
+            let val = 0;
+            let dir = 1;
+
             mouthIntervalRef.current = window.setInterval(() => {
-                setMouthOpen(Math.random());
-            }, 100);
+                // Tăng/giảm mượt mà thay vì random
+                val += 0.05 * dir;
+                if (val >= 1) { val = 1; dir = -1; }
+                else if (val <= 0) { val = 0; dir = 1; }
+
+                currentMouthValue.current = val;
+            }, 50);
         };
 
         const cleanup = () => {
             setIsPlaying(false);
+            isPlayingRef.current = false;
             if (mouthIntervalRef.current) {
                 window.clearInterval(mouthIntervalRef.current);
                 mouthIntervalRef.current = null;
             }
+            currentMouthValue.current = 0;
             setMouthOpen(0);
         };
 
@@ -75,7 +89,6 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
     useEffect(() => {
         (window as any).PIXI = PIXI;
-        // const modelPath = '/models/akari_vts/akari.model3.json';
         const modelPath = 'models/hiyori/hiyori_free_t08.model3.json';
         let isMounted = true;
 
@@ -105,6 +118,21 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 const model = await Live2DModel.from(modelPath);
                 modelRef.current = model;
 
+                // GIẢI QUYẾT XUNG ĐỘT GHI ĐÈ TRỰC TIẾP
+                model.on("modelModelUpdate", () => {
+                    if (isPlayingRef.current) {
+                        const core = model.internalModel.coreModel;
+                        // Nhân 1.5 để mở miệng to hơn, giới hạn tối đa là 1.0
+                        const finalOpen = Math.min(currentMouthValue.current * 1.5, 1.0);
+
+                        // Ép kiểu any để gọi hàm của SDK Live2D
+                        if (core && typeof (core as any).setParameterValueById === 'function') {
+                            (core as any).setParameterValueById("ParamMouthOpen", finalOpen);
+                            (core as any).setParameterValueById("ParamMouthOpenY", finalOpen);
+                        }
+                    }
+                });
+
                 if (!isMounted || !pixiApp.current) return;
 
                 pixiApp.current.stage.addChild(model as any);
@@ -115,9 +143,7 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 model.y = h / 2;
                 model.anchor.set(0.5, 0.2);
 
-                // Bật tương tác chuột cho model
                 model.interactive = true;
-                // Lệnh này giúp model tự động "đảo mắt" và quay đầu theo vị trí chuột
                 model.autoInteract = true;
 
                 setInternalStatus('');

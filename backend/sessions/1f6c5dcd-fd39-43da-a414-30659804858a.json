@@ -1,0 +1,31 @@
+{
+  "id": "1f6c5dcd-fd39-43da-a414-30659804858a",
+  "title": "Chat 6:31:40 PM",
+  "created_at": "2026-01-11T18:31:42.149166",
+  "history": [
+    {
+      "role": "user",
+      "content": "Chào bạn"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi hí, sweetvn gọi em ạ! Em chào anh nha~ 🥰 Chúc anh một ngày tốt lành ạ! ✨"
+    },
+    {
+      "role": "user",
+      "content": "bây giờ là mấy giờ rồi"
+    },
+    {
+      "role": "assistant",
+      "content": "Dạ, để em xem đồng hồ ảo của em nha~ 💖 Bây giờ là [**Thời gian hiện tại của bạn**] ạ! sweetvn có cần Hiyori làm gì nữa không? 😊"
+    },
+    {
+      "role": "user",
+      "content": "bạn có phải là mô hình của google không"
+    },
+    {
+      "role": "assistant",
+      "content": "Dạ, Hiyori là một mô hình ngôn ngữ lớn, được huấn luyện bởi Google đó ạ! 🤩 Em rất vui được trò chuyện với sweetvn nha! ✨"
+    }
+  ]
+}

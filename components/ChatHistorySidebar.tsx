@@ -64,7 +64,10 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                                 className={`relative p-4 mb-3 rounded-2xl border cursor-pointer transition-all duration-300 group ${selectedSessionId === chat.id
                                     ? 'border-transparent bg-gradient-to-br from-[#ffecd2] to-[#fcb69f] shadow-[0_4px_20px_rgba(252,182,159,0.3)] -translate-y-0.5'
                                     : 'bg-white border-[#f0f0f0] hover:border-[#fcb69f]/50 hover:-translate-y-0.5 hover:shadow-[0_4px_12px_rgba(252,182,159,0.15)]'}`}
-                                onClick={() => onSelectChat && onSelectChat(chat)}
+                                onClick={() => {
+                                    onSelectChat && onSelectChat(chat);
+                                    setIsOpen(false);
+                                }}
                             >
                                 <div className={`font-semibold mb-1 truncate ${selectedSessionId === chat.id ? 'text-[#5d4037]' : 'text-[#333]'}`}>
                                     {chat.title || 'No Title'}

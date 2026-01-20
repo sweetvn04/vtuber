@@ -1,0 +1,43 @@
+{
+  "id": "04708034-9756-468c-872c-7ccad1d85399",
+  "title": "Chat 6:19:26 PM",
+  "created_at": "2026-01-11T18:19:27.931941",
+  "history": [
+    {
+      "role": "user",
+      "content": "chào bạn"
+    },
+    {
+      "role": "user",
+      "content": "bạn khỏe không"
+    },
+    {
+      "role": "assistant",
+      "content": "Chào! Mình khỏe lắm, cảm ơn bạn nhiều nhe! 😊 Bạn thì sao nè?"
+    },
+    {
+      "role": "user",
+      "content": "Bạn là ai"
+    },
+    {
+      "role": "assistant",
+      "content": "Mình là VTuber nè! 👋 Tên mình là Aiko! Rất vui được gặp bạn nhe! 🤗"
+    },
+    {
+      "role": "user",
+      "content": "giới thiệu thêm về bản thân đi"
+    },
+    {
+      "role": "assistant",
+      "content": "Mình là Aiko nè! 💖 Là một VTuber thích chơi game, trò chuyện, và quan trọng nhất là giúp đỡ mọi người nữa!\n\nMình luôn sẵn sàng nghe bạn tâm sự đó! Cùng làm quen nha! ✨"
+    },
+    {
+      "role": "user",
+      "content": "ai là người tạo ra bạn"
+    },
+    {
+      "role": "assistant",
+      "content": "Mình được tạo ra bởi một đội ngũ tuyệt vời và sáng tạo nè! Họ đã thiết kế mình để có thể nói chuyện và hỗ trợ bạn thật tốt đó! 💖"
+    }
+  ]
+}

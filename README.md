@@ -1,36 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Sweet VTuber 🎀
 
-## Getting Started
+**Sweet VTuber** là một ứng dụng VTuber ảo tích hợp trí tuệ nhân tạo (AI), cho phép người dùng trò chuyện trực tiếp với nhân vật Live2D thông qua giọng nói và văn bản. Dự án kết hợp sức mạnh của Google Gemini để xử lý hội thoại và Piper TTS để mang lại giọng nói tự nhiên, sinh động.
 
-First, run the development server:
+## ✨ Tính năng nổi bật
 
+*   **Nhân vật Live2D Tương tác:** Hiển thị model Live2D (Hiyori) với hiệu ứng chuyển động và lip-sync khớp với giọng nói.
+*   **Trò chuyện với AI:** Tích hợp Google Gemini (Gemma 3) giúp nhân vật có khả năng phản hồi thông minh, hóm hỉnh.
+*   **Chế độ học Tiếng Anh:** Nhân vật (Hiyori) được thiết lập để trả lời hoàn toàn bằng tiếng Anh ngắn gọn, súc tích, hỗ trợ người dùng luyện tập giao tiếp.
+*   **Chuyển đổi văn bản thành giọng nói (TTS):** Sử dụng Piper mang lại tốc độ phản hồi cực nhanh và giọng nói chất lượng cao.
+*   **Quản lý lịch sử chat:** Lưu trữ các phiên trò chuyện dưới dạng phiên (sessions), cho phép xem lại hoặc xóa lịch sử.
+*   **Giao diện hiện đại:** Được xây dựng bằng Next.js 15 và Tailwind CSS, mang lại trải nghiệm mượt mà và thẩm mỹ.
+
+## 🛠️ Công nghệ sử dụng
+
+### Frontend:
+*   **Framework:** Next.js 15 (App Router)
+*   **UI/UX:** Tailwind CSS, Lucide Icons
+*   **Live2D Engine:** PixiJS & pixi-live2d-display
+*   **State Management:** React Hooks (useState, useEffect)
+
+### Backend:
+*   **Framework:** FastAPI (Python)
+*   **AI Model:** Google Generative AI (Gemini API)
+*   **TTS Engine:** Piper TTS
+*   **Communication:** WebSockets (để streaming tin nhắn và audio)
+
+## 🚀 Hướng dẫn cài đặt
+
+### 1. Chuẩn bị môi trường
+Yêu cầu:
+*   Node.js 18+
+*   Python 3.10+
+*   API Key từ [Google AI Studio](https://aistudio.google.com/)
+
+### 2. Cài đặt Backend
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd backend
+# Tạo môi trường ảo (khuyến nghị)
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
+
+# Cài đặt thư viện
+pip install -r requirements.txt
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Cấu hình Piper:**
+Đảm bảo thư mục `backend/piper` có chứa file thực thi `piper` và thư mục `backend/tts_model` có chứa file model `.onnx` (ví dụ: `en_US-amy-low.onnx`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Cài đặt Frontend
+```bash
+# Tại thư mục gốc của project
+npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Cấu hình biến môi trường
+Tạo file `.env` ở thư mục gốc:
+```env
+GEMINI_API_KEY=your_api_key_here
+```
 
-## Learn More
+## 🏃 Cách chạy ứng dụng
 
-To learn more about Next.js, take a look at the following resources:
+Bạn cần chạy đồng thời cả Backend và Frontend:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1.  **Chạy Backend:**
+    ```bash
+    cd backend
+    python main.py
+    ```
+    Backend sẽ chạy tại `http://localhost:8080`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2.  **Chạy Frontend:**
+    ```bash
+    npm run dev
+    ```
+    Mở trình duyệt và truy cập `http://localhost:3000`.
 
-## Deploy on Vercel
+## 📂 Cấu trúc thư mục chủ yếu
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+*   `app/`: Chứa các trang chính của Next.js.
+*   `components/`: Các component UI (ChatInterface, ChatHistory, VtuberModel...).
+*   `backend/`:
+    *   `main.py`: Entry point của FastAPI và logic xử lý WebSocket/Gemini.
+    *   `tts_service.py`: Xử lý chuyển đổi văn bản sang âm thanh bằng Piper.
+    *   `sessions/`: Lưu trữ lịch sử chat dưới dạng file JSON.
+*   `public/`: Chứa các tài nguyên tĩnh, model Live2D.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📝 Giấy phép
+Dự án được tạo ra với mục đích học tập và giải trí.
+
+---
+*Chúc bạn có những giây phút trò chuyện vui vẻ với Hiyori!* ฅ^•ﻌ•^ฅ

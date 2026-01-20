@@ -10,6 +10,16 @@ import ChatHistorySidebar from "@/components/ChatHistorySidebar";
 
 const API_BASE = "http://localhost:8080";
 
+function base64ToBlob(base64: string, type: string) {
+    const binStr = atob(base64);
+    const len = binStr.length;
+    const arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        arr[i] = binStr.charCodeAt(i);
+    }
+    return new Blob([arr], { type: type });
+}
+
 export default function Home() {
     const [sessions, setSessions] = useState<any[]>([]);
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -18,6 +28,7 @@ export default function Home() {
     const [isWebcamOn, setIsWebcamOn] = useState(false);
     const [scanData, setScanData] = useState<any>(null);
     const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
+    const [isThinking, setIsThinking] = useState(false);
 
     const ws = useRef<WebSocket | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,6 +61,28 @@ export default function Home() {
         }
     }, [fetchSessions]);
 
+    const handleDeleteSession = useCallback(async (id: string) => {
+        if (!window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?")) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/api/chat/session/${id}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                await fetchSessions(); // Tải lại danh sách sau khi xóa
+                if (selectedSessionId === id) {
+                    setSelectedSessionId(null);
+                    setChatLog([]);
+                }
+            } else {
+                alert("Lỗi khi xóa session");
+            }
+        } catch (e) {
+            console.error("Lỗi xóa session:", e);
+        }
+    }, [selectedSessionId, fetchSessions]);
+
     useEffect(() => {
         if (!selectedSessionId) return;
 
@@ -74,6 +107,12 @@ export default function Home() {
                 const data = JSON.parse(event.data);
                 if (data.type === "AI_RESPONSE_TEXT") {
                     setChatLog(prev => [...prev, { role: "assistant", content: data.payload }]);
+                    setIsThinking(false); // <--- DỪNG NGHĨ KHI CÓ PHẢN HỒI
+                } else if (data.type === "AUDIO") {
+                    // Chuyển Base64 sang Blob URL để phát
+                    const audioBlob = base64ToBlob(data.payload, 'audio/wav');
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    setCurrentAudioUrl(audioUrl); // Biến này sẽ được truyền vào VtuberModelDisplay
                 } else if (data.type === "SCAN_UPDATE") {
                     setScanData(data.payload);
                 }
@@ -89,6 +128,7 @@ export default function Home() {
         if (!ws.current || ws.current.readyState !== WebSocket.OPEN) return;
         ws.current.send(JSON.stringify({ type: "TEXT_MESSAGE", user_id: "12345678900923", payload: text }));
         setChatLog(prev => [...prev, { role: "user", content: text }]);
+        setIsThinking(true);
     }, []);
 
     useEffect(() => {
@@ -134,22 +174,24 @@ export default function Home() {
                 selectedSessionId={selectedSessionId}
                 onSelectChat={(chat: any) => setSelectedSessionId(chat.id)}
                 onNewChat={handleNewChat}
+                onDeleteSession={handleDeleteSession}
             />
 
             <div className="flex-1 flex flex-col gap-5 min-w-0 relative z-10">
-                <div className="flex justify-center items-center bg-white rounded-[20px] p-6 shadow-[0_4px_20px_rgba(252,182,159,0.15),0_2px_8px_rgba(0,0,0,0.05)] border border-white/80 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(252,182,159,0.2),0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 animate-in slide-in-from-bottom-5 duration-700 delay-100">
+                {false && (<div className="flex justify-center items-center bg-white rounded-[20px] p-6 shadow-[0_4px_20px_rgba(252,182,159,0.15),0_2px_8px_rgba(0,0,0,0.05)] border border-white/80 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(252,182,159,0.2),0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 animate-in slide-in-from-bottom-5 duration-700 delay-100">
                     <UserCamera
                         videoRef={videoRef}
                         isOn={isWebcamOn}
                         onToggle={() => setIsWebcamOn(!isWebcamOn)}
                         scanData={scanData}
                     />
-                </div>
+                </div>)}
                 <div className="flex-grow min-h-0 bg-white rounded-[20px] shadow-[0_4_20px_rgba(252,182,159,0.15),0_2px_8px_rgba(0,0,0,0.05)] border border-white/80 overflow-hidden animate-in slide-in-from-bottom-5 duration-700 delay-200">
                     <ChatInterface
                         chatLog={chatLog}
                         onSendMessage={handleSendMessage}
                         disabled={!selectedSessionId}
+                        isThinking={isThinking} // <--- TRUYỀN XUỐNG ĐÂY
                     />
                 </div>
             </div>
