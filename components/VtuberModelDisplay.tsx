@@ -17,12 +17,42 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
     const [debugInfo, setDebugInfo] = useState<string[]>([]);
     const [showDebug, setShowDebug] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [debugSpeaking, setDebugSpeaking] = useState(false);
+
+    const debugSpeakingRef = useRef(false);
+    const testMouthIntervalRef = useRef<number | null>(null);
+
+    const toggleTestSpeaking = () => {
+        const newState = !debugSpeakingRef.current;
+        debugSpeakingRef.current = newState;
+        setDebugSpeaking(newState);
+
+        if (newState) {
+            addLog("🔴 Bắt đầu Test Speak");
+            currentMouthValue.current = 0.8; // Khởi tạo mở to
+            testMouthIntervalRef.current = window.setInterval(() => {
+                // Đổi trạng thái giữa 0 và 0.8 mỗi 0.5s cho rõ ràng
+                currentMouthValue.current = (currentMouthValue.current === 0) ? 0.8 : 0;
+            }, 500);
+        } else {
+            addLog("⚪ Dừng Test Speak");
+            if (testMouthIntervalRef.current) {
+                window.clearInterval(testMouthIntervalRef.current);
+                testMouthIntervalRef.current = null;
+            }
+            currentMouthValue.current = 0;
+        }
+    };
 
     const audioObjRef = useRef<HTMLAudioElement | null>(null);
     const mouthIntervalRef = useRef<number | null>(null);
 
     const currentMouthValue = useRef(0); // Lưu giá trị mở miệng cho vòng lặp Pixi
     const isPlayingRef = useRef(false);   // Ref để tránh lỗi stale closure trong sự kiện Pixi
+
+    // Web Audio API refs for LipSync
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const analyserRef = useRef<AnalyserNode | null>(null);
 
     const addLog = (message: string) => {
         setDebugInfo(prev => [...prev.slice(-10), `${new Date().toLocaleTimeString()}: ${message}`]);
@@ -44,31 +74,79 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
     useEffect(() => {
         if (!audioUrl) return;
 
+        // Cleanup audio cũ
         if (audioObjRef.current) {
             audioObjRef.current.pause();
-            audioObjRef.current = null;
+            audioObjRef.current.src = "";
         }
         if (mouthIntervalRef.current) {
             window.clearInterval(mouthIntervalRef.current);
+            mouthIntervalRef.current = null;
         }
 
         const audio = new Audio(audioUrl);
+        audio.crossOrigin = "anonymous";
         audioObjRef.current = audio;
 
         audio.onplay = () => {
             setIsPlaying(true);
             isPlayingRef.current = true;
-            let val = 0;
-            let dir = 1;
 
-            mouthIntervalRef.current = window.setInterval(() => {
-                // Tăng/giảm mượt mà thay vì random
-                val += 0.05 * dir;
-                if (val >= 1) { val = 1; dir = -1; }
-                else if (val <= 0) { val = 0; dir = 1; }
+            try {
+                // Khởi tạo AudioContext và Analyser nếu chưa có
+                if (!audioContextRef.current) {
+                    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+                    analyserRef.current = audioContextRef.current.createAnalyser();
+                    analyserRef.current.fftSize = 256;
+                }
 
-                currentMouthValue.current = val;
-            }, 50);
+                // Kết nối nguồn audio element vào analyser
+                if (analyserRef.current) {
+                    const source = audioContextRef.current.createMediaElementSource(audio);
+                    source.connect(analyserRef.current);
+                    analyserRef.current.connect(audioContextRef.current.destination);
+                }
+
+                if (audioContextRef.current.state === 'suspended') {
+                    audioContextRef.current.resume();
+                }
+
+                const dataArray = new Uint8Array(analyserRef.current?.frequencyBinCount || 0);
+
+                const updateLipSync = () => {
+                    const analyser = analyserRef.current;
+                    if (!isPlayingRef.current || !analyser) return;
+
+                    analyser.getByteFrequencyData(dataArray);
+
+                    // Tính độ lớn âm thanh (trung bình các tần số)
+                    let sum = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        sum += dataArray[i];
+                    }
+                    const average = sum / dataArray.length;
+
+                    // Map volume sang độ mở miệng (0.0 - 1.0)
+                    // Scale để nhạy hơn với giọng nói (thường average tầm 30-80)
+                    let val = (average / 50) * 1.5;
+                    if (val > 1.0) val = 1.0;
+                    if (val < 0.1) val = 0; // Loại bỏ nhiễu nhẹ
+
+                    currentMouthValue.current = val;
+
+                    if (isPlayingRef.current) {
+                        requestAnimationFrame(updateLipSync);
+                    }
+                };
+
+                updateLipSync();
+            } catch (err) {
+                addLog(`Lỗi LipSync: ${err}`);
+                // Fallback: nhấp nháy miệng đơn giản nếu Web Audio bị lỗi
+                mouthIntervalRef.current = window.setInterval(() => {
+                    currentMouthValue.current = (currentMouthValue.current === 0) ? 0.6 : 0;
+                }, 200);
+            }
         };
 
         const cleanup = () => {
@@ -79,12 +157,17 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 mouthIntervalRef.current = null;
             }
             currentMouthValue.current = 0;
-            setMouthOpen(0);
         };
 
         audio.onended = cleanup;
         audio.onpause = cleanup;
         audio.play().catch(e => addLog(`Lỗi Play: ${e.message}`));
+
+        return () => {
+            audio.pause();
+            audio.src = "";
+            cleanup();
+        };
     }, [audioUrl]);
 
     useEffect(() => {
@@ -118,18 +201,40 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 const model = await Live2DModel.from(modelPath);
                 modelRef.current = model;
 
-                // GIẢI QUYẾT XUNG ĐỘT GHI ĐÈ TRỰC TIẾP
-                model.on("modelModelUpdate", () => {
-                    if (isPlayingRef.current) {
-                        const core = model.internalModel.coreModel;
-                        // Nhân 1.5 để mở miệng to hơn, giới hạn tối đa là 1.0
-                        const finalOpen = Math.min(currentMouthValue.current * 1.5, 1.0);
+                // Vô hiệu hóa các chuyển động Idle và các motion tự động
+                if (model.internalModel.motionManager) {
+                    model.internalModel.motionManager.stopAllMotions();
+                    // Xoá các nhóm motion để model không tự động chạy các chuyển động Idle nữa
+                    (model.internalModel.motionManager as any).groups = {};
+                }
 
-                        // Ép kiểu any để gọi hàm của SDK Live2D
+                // Sử dụng Ticker để ghi đè các tham số SAU KHI model đã tính toán chuyển động mặc định (Motion/Physics)
+                pixiApp.current.ticker.add(() => {
+                    if (!modelRef.current) return;
+                    const core = modelRef.current.internalModel.coreModel;
+
+                    if (isPlayingRef.current || debugSpeakingRef.current) {
+                        const finalOpen = currentMouthValue.current;
                         if (core && typeof (core as any).setParameterValueById === 'function') {
                             (core as any).setParameterValueById("ParamMouthOpen", finalOpen);
                             (core as any).setParameterValueById("ParamMouthOpenY", finalOpen);
+                            (core as any).setParameterValueById("ParamMouthForm", 1.0); // Cười nhẹ khi nói
                         }
+                    } else {
+                        // Đảm bảo đóng miệng khi không nói
+                        if (core && typeof (core as any).setParameterValueById === 'function') {
+                            (core as any).setParameterValueById("ParamMouthOpen", 0);
+                            (core as any).setParameterValueById("ParamMouthOpenY", 0);
+                        }
+                    }
+
+                    // Damping các chuyển động tự động để model tĩnh hơn (chạy liên tục hậu update)
+                    if (core && typeof (core as any).setParameterValueById === 'function' && typeof (core as any).getParameterValueById === 'function') {
+                        const breathVal = (core as any).getParameterValueById("ParamBreath");
+                        if (typeof breathVal === 'number') (core as any).setParameterValueById("ParamBreath", breathVal * 0.6);
+
+                        const bodyX = (core as any).getParameterValueById("ParamBodyAngleX");
+                        if (typeof bodyX === 'number') (core as any).setParameterValueById("ParamBodyAngleX", bodyX * 0.5);
                     }
                 });
 
@@ -146,6 +251,11 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 model.interactive = true;
                 model.autoInteract = true;
 
+                // Giảm độ nhạy khi quay đầu/nhìn theo chuột để model bớt "loi nhoi"
+                if ((model as any).focusHandler) {
+                    (model as any).focusHandler.config.factor = 0.5;
+                }
+
                 setInternalStatus('');
                 addLog('✓ Model Ready');
 
@@ -159,6 +269,7 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
         return () => {
             isMounted = false;
+            if (testMouthIntervalRef.current) window.clearInterval(testMouthIntervalRef.current);
             if (pixiApp.current) {
                 pixiApp.current.destroy(true);
                 pixiApp.current = null;
@@ -192,13 +303,24 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 </div>
             )}
 
-            {/* Debug Controls */}
-            <button
-                onClick={() => setShowDebug(!showDebug)}
-                className="absolute top-3 right-3 bg-black/30 hover:bg-black/50 text-white/70 hover:text-white px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border border-white/10 transition-all"
-            >
-                {showDebug ? 'Hide Logs' : 'Show Logs'}
-            </button>
+            {/* Test Controls */}
+            <div className="absolute top-3 right-3 flex gap-2">
+                <button
+                    onClick={toggleTestSpeaking}
+                    className={`px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border transition-all ${debugSpeaking
+                        ? 'bg-red-500/50 border-red-400 text-white animate-pulse'
+                        : 'bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white'
+                        }`}
+                >
+                    {debugSpeaking ? 'Stop Test' : 'Test Speak'}
+                </button>
+                <button
+                    onClick={() => setShowDebug(!showDebug)}
+                    className="bg-black/30 hover:bg-black/50 text-white/70 hover:text-white px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border border-white/10 transition-all"
+                >
+                    {showDebug ? 'Hide Logs' : 'Show Logs'}
+                </button>
+            </div>
 
             {showDebug && (
                 <div className="absolute top-12 right-3 w-64 max-h-40 overflow-y-auto bg-black/80 backdrop-blur-xl rounded-xl p-3 text-[#0f0] font-mono text-[10px] border border-white/10 shadow-2xl">

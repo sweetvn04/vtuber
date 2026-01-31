@@ -42,6 +42,54 @@
     {
       "role": "assistant",
       "content": "Yay! 😄 I’m so glad you agree! It’s a very important truth! 💖 What’s *your* favorite animal?"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi sweetvn! 👋 Just checking in! 😊 How’s your day going so far?"
+    },
+    {
+      "role": "user",
+      "content": "how are u today? "
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori is doing great, thank you for asking! 😄 I’m feeling super happy and ready for anything! 🥰 How about you?"
+    },
+    {
+      "role": "user",
+      "content": "hi ban"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi ban too, sweetvn! 😊 It’s nice to hear from you! What do you want to chat about? 💖"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi hi! 😄 Let’s have some fun! ✨ Do you want to play a little game, or just talk?"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Okay! 😊 Just wanted to say hi and see how you are! 🤗 Anything you want to tell Hiyori?"
+    },
+    {
+      "role": "user",
+      "content": "who are you"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori is a virtual streamer! 💖 I’m a cute VTuber, like a digital girl! ✨ I love talking to new people like you, sweetvn! 😊"
     }
   ]
 }
