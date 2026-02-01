@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Large files / Live2D sources
+*.cmo3
+*.can3
+*.zip
