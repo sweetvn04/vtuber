@@ -84,7 +84,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                                 </span>
 
                                 <button
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 transition-all text-xs"
+                                    className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 rounded-md text-red-400 hover:bg-red-50 hover:text-red-600 transition-all text-xs"
                                     onClick={(e) => { e.stopPropagation(); onDeleteSession && onDeleteSession(chat.id); }}
                                     title="Delete chat"
                                 >

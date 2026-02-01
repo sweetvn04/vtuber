@@ -8,15 +8,25 @@ interface ChatInterfaceProps {
     disabled?: boolean;
     isThinking?: boolean;
     isDarkMode?: boolean;
+    isFullScreen?: boolean;
+    onToggleFullScreen?: () => void;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessage, disabled, isThinking, isDarkMode = false }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({
+    chatLog = [],
+    onSendMessage,
+    disabled,
+    isThinking,
+    isDarkMode = false,
+    isFullScreen = false,
+    onToggleFullScreen
+}) => {
     const [input, setInput] = useState('');
     const [isRecording, setIsRecording] = useState(false);
-    // Sử dụng Ref để tránh sự cố Race Condition (Mic đang khởi động lại bị gọi tiếp)
+    // Sử dụng Ref để tránh sự cố Race Condition
     const isRecordingRef = useRef(false);
-    const isStartingRef = useRef(false); // Chốt chặn quan trọng
-    const micAccessGrantedRef = useRef(false); // Đánh dấu đã có quyền Mic hay chưa
+    const isStartingRef = useRef(false);
+    const micAccessGrantedRef = useRef(false);
 
     const recognitionRef = useRef<any>(null);
     const messageEndRef = useRef<HTMLDivElement>(null);
@@ -26,14 +36,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
     const setRecordingState = (state: boolean) => {
         setIsRecording(state);
         isRecordingRef.current = state;
-        if (state) isStartingRef.current = false; // Mở khóa khi đã bắt đầu thành công
+        if (state) isStartingRef.current = false;
     };
 
     useEffect(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRecognition && !recognitionRef.current) {
             const recognition = new SpeechRecognition();
-            recognition.continuous = false; // Ngắt ngay khi nói xong câu
+            recognition.continuous = false;
             recognition.interimResults = true;
             recognition.lang = 'en-US';
 
@@ -58,19 +68,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
             };
 
             recognition.onerror = (event: any) => {
-                // Xử lý các lỗi nghiêm trọng về phần cứng
                 if (event.error === 'audio-capture' || event.error === 'not-allowed') {
                     console.warn('Microphone Error:', event.error);
-                    micAccessGrantedRef.current = false; // Reset quyền để lần sau thử kết nối lại
+                    micAccessGrantedRef.current = false;
                     alert("Không thể bắt được âm thanh (audio-capture).\n\n- Kiểm tra xem Mic có bị lỏng không.\n- Kiểm tra xem có ứng dụng khác đang chiếm Mic không.\n- Trên Linux, thử tắt PulseAudio/Pipewire rồi bật lại.");
                 }
 
-                // Bỏ qua lỗi 'no-speech' thường gặp khi giữ phím lâu mà chưa nói
                 if (event.error !== 'no-speech' && event.error !== 'aborted' && event.error !== 'audio-capture') {
                     console.warn('Speech recognition error:', event.error);
                 }
 
-                // Nếu lỗi xảy ra, phải reset mọi trạng thái để cho phép thử lại
                 setRecordingState(false);
                 isStartingRef.current = false;
             };
@@ -85,7 +92,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
     }, [onSendMessage]);
 
     const startRecording = () => {
-        // CHỐT CHẶN: Nếu mic đang bật HOẶC đang trong quá trình bật -> Dừng ngay
         if (!recognitionRef.current || isRecordingRef.current || isStartingRef.current) return;
 
         const executeStart = () => {
@@ -100,16 +106,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
             }
         };
 
-        // Nếu chưa từng check quyền Mic thành công, hãy Warm-up trước
         if (!micAccessGrantedRef.current) {
-            isStartingRef.current = true; // Khóa tạm thời
+            isStartingRef.current = true;
             navigator.mediaDevices.getUserMedia({ audio: true })
                 .then((stream) => {
-                    // Đánh thức thành công! Tắt stream này đi để nhường cho SpeechRecognition
                     stream.getTracks().forEach(t => t.stop());
                     micAccessGrantedRef.current = true;
-
-                    // Giờ thì start thật
                     executeStart();
                 })
                 .catch((err) => {
@@ -120,14 +122,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
             return;
         }
 
-        // Fast Path: Đã có quyền, start luôn cho nóng
         executeStart();
     };
 
     const stopRecording = () => {
         if (recognitionRef.current) {
             recognitionRef.current.stop();
-            // Không set false ngay, đợi onend xử lý để đồng bộ
         }
     };
 
@@ -136,15 +136,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
         isRecordingRef.current ? stopRecording() : startRecording();
     };
 
-    // --- PUSH TO TALK (REWRITTEN & FIXED) ---
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Kiểm tra kỹ các điều kiện để tránh xung đột
             const isInputFocused = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '');
             if (isInputFocused) return;
 
             if (e.key.toLowerCase() === 'm' && !e.repeat) {
-                // Chỉ bắt đầu nếu chưa đang ghi âm
                 if (!isRecordingRef.current) {
                     isPushToTalkRef.current = true;
                     startRecording();
@@ -154,7 +151,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
 
         const handleKeyUp = (e: KeyboardEvent) => {
             if (e.key.toLowerCase() === 'm') {
-                // Nếu đang trong chế độ Push-to-Talk thì mới dừng
                 if (isPushToTalkRef.current) {
                     stopRecording();
                     isPushToTalkRef.current = false;
@@ -197,6 +193,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
                     <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     <h2 className="font-bold text-xs tracking-wider uppercase opacity-70">Live Chat</h2>
                 </div>
+
+                {/* Full Screen Toggle Button */}
+                {onToggleFullScreen && (
+                    <button
+                        onClick={onToggleFullScreen}
+                        className={`p-1.5 rounded-md transition-all hover:bg-gray-100 dark:hover:bg-gray-700 opacity-60 hover:opacity-100 font-bold`}
+                        title={isFullScreen ? "Exit Full Screen" : "Full Screen"}
+                    >
+                        {isFullScreen ? '↙ Thu nhỏ' : '⛶ Toàn màn hình'}
+                    </button>
+                )}
             </div>
 
             {/* Messages */}

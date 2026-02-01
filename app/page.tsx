@@ -197,9 +197,45 @@ export default function Home() {
 
     useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
-    return (
-        <div className={`flex w-full h-[100dvh] overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-slate-800'}`}>
+    const [isChatFullScreen, setIsChatFullScreen] = useState(false);
 
+    // --- KEYBOARD HANDLING (MOBILE) ---
+    // Sử dụng visualViewport để tính lại chiều cao khi bàn phím ảo hiện lên
+    const [viewportHeight, setViewportHeight] = useState<string>('100dvh');
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.visualViewport) {
+                // Cập nhật chiều cao bằng phần màn hình thực tế nhìn thấy được
+                // Flexbox sẽ tự động đẩy Input lên sát bàn phím
+                setViewportHeight(`${window.visualViewport.height}px`);
+
+                // Nếu đang dùng PC (không có cảm ứng), visualViewport.height == window.innerHeight
+                // Logic này an toàn cho cả 2
+            }
+        };
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', handleResize);
+            window.visualViewport.addEventListener('scroll', handleResize);
+            handleResize(); // Gọi ngay
+        }
+
+        return () => {
+            if (window.visualViewport) {
+                window.visualViewport.removeEventListener('resize', handleResize);
+                window.visualViewport.removeEventListener('scroll', handleResize);
+            }
+        };
+    }, []); // Chạy 1 lần duy nhất lúc mount
+
+    return (
+        <div
+            className={`flex w-full overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-slate-800'}`}
+            style={{ height: viewportHeight }} // Áp dụng cho toàn bộ App
+        >
+
+            {/* ... (Giữ nguyên phần MENU BUTTON và SIDEBAR) */}
             {/* MOBILE ONLY: MENU BUTTON (Top Left) */}
             <button
                 className={`lg:hidden absolute top-4 left-4 z-50 p-2 rounded-full shadow-md ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-700'}`}
@@ -217,7 +253,6 @@ export default function Home() {
             )}
 
             {/* 1. SIDEBAR (Responsive Wrapper) */}
-            {/* Desktop: Static Block. Mobile: Fixed Slide-over Panel */}
             <div className={`
                 fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-64 lg:block border-r
                 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -268,10 +303,8 @@ export default function Home() {
                 </button>
 
                 {/* 2. MODEL AREA */}
-                {/* Mobile: Chiếm 60% chiều cao. Desktop: Chiếm phần còn lại (flex-1) */}
-                <div className={`relative h-[55%] lg:h-full lg:flex-1 overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
-
-
+                {/* Mobile: Co giãn linh hoạt (flex-1). Khi bàn phím mở, nó sẽ thu nhỏ lại. */}
+                <div className={`relative flex-1 min-h-0 lg:h-full lg:flex-1 overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
                     {/* Vùng chứa Model */}
                     <div className="w-full h-full">
                         <VtuberModelDisplay status={status} audioUrl={currentAudioUrl} />
@@ -279,15 +312,23 @@ export default function Home() {
                 </div>
 
                 {/* 3. CHAT AREA */}
-                {/* Mobile: Chiếm 40% chiều cao (phía dưới). Desktop: Cột bên phải rộng 400px */}
-                <div className={`h-[45%] lg:h-full lg:w-[400px] border-t lg:border-t-0 lg:border-l z-10 shadow-sm flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-                    }`}>
+                {/* Nếu FullScreen -> Chiếm trọn màn hình (absolute inset-0). Nếu không -> Layout cũ */}
+                <div className={`
+                    border-t lg:border-t-0 lg:border-l shadow-sm flex flex-col transition-all duration-300 
+                    ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+                    ${isChatFullScreen
+                        ? 'fixed inset-0 w-full z-[100]'
+                        : 'z-40 h-[350px] shrink-0 lg:h-full lg:w-[400px]'
+                    }
+                `}>
                     <ChatInterface
                         chatLog={chatLog}
                         onSendMessage={handleSendMessage}
                         disabled={!selectedSessionId}
                         isThinking={isThinking}
                         isDarkMode={isDarkMode}
+                        isFullScreen={isChatFullScreen}
+                        onToggleFullScreen={() => setIsChatFullScreen(!isChatFullScreen)}
                     />
                 </div>
 

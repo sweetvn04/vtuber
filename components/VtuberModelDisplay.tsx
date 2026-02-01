@@ -276,32 +276,58 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                     // Logic Mobile: Nếu màn hình hẹp, có thể cần zoom nhỏ lại xíu để không mất 2 bên vai quá nhiều
                     // Nhưng vẫn ưu tiên cận cảnh mặt
                     if (parentW < parentH) {
-                        targetScale = (parentH / originalHeight) * 1.4; // Mobile zoom vừa phải hơn chút
+                        targetScale = (parentH / originalHeight) * 1.6; // Mobile zoom vừa phải hơn chút
+                    }
+
+                    // --- CHẾ ĐỘ FACE FOCUS (KHI BÀN PHÍM MỞ) ---
+                    // Nếu chiều cao vùng hiển thị quá nhỏ (do bàn phím chiếm chỗ),
+                    // Ta không scale theo chiều cao nữa (vì sẽ làm model bé tí),
+                    // Mà sẽ scale theo chiều rộng và Zoom vào mặt.
+                    const isKeyboardOpen = parentH < 400; // Ngưỡng nhận diện bàn phím
+
+                    if (isKeyboardOpen) {
+                        // Zoom Close-up (Giảm mạnh xuống theo ý user)
+                        targetScale = (parentW / originalWidth) * 0.2;
+                        if (targetScale < 0.2) targetScale = 0.05;
                     }
 
                     model.scale.set(targetScale);
 
-                    // Đặt vị trí:
-                    // Mục tiêu: Đỉnh đầu nằm sát mép trên màn hình (hoặc cách 1 chút top margin).
-                    // Vì Anchor = (0.5, 1.0) tức là Gốc ở Chân.
-                    // Vị trí đỉnh đầu (Top) = position.y - model.height (đã scale).
-                    // Muốn Top = 0 + margin (ví dụ 5% parentH).
-                    // => position.y = model.height + (parentH * 0.05).
-
-                    // Lấy chiều cao thực tế sau khi scale
+                    // --- POSITIONING ---
                     const currentHeight = originalHeight * targetScale;
 
-                    // Đặt chân model tít xuống dưới để đầu trồi lên trên
-                    model.position.set(parentW * 0.5, currentHeight + (parentH * 0.05));
+                    if (isKeyboardOpen) {
+                        // FACE FOCUS STRATEGY:
+                        // Dịch model lên trên một chút -> Giảm hệ số cộng thêm từ chân
+                        const eyeLevelRatio = 0.8;
+                        model.position.set(parentW * 0.5, (parentH * 0.5) + (currentHeight * eyeLevelRatio));
+                    } else {
+                        // NORMAL MODE: Đỉnh đầu sát mép trên
+                        // Đặt chân model tít xuống dưới để đầu trồi lên trên
+                        model.position.set(parentW * 0.5, currentHeight + (parentH * 0.05));
+                    }
                 };
 
-                // Gọi resize ngay lập tức và sau 100ms để đảm bảo layout ổn định
+                // --- DEBOUNCED RESIZE ---
+                let resizeTimeout: any;
+                const debouncedResize = () => {
+                    clearTimeout(resizeTimeout);
+                    // Chờ 200ms để bàn phím ổn định vị trí rồi mới resize model
+                    // Giúp tránh hiện tượng model bị co giật (flicker) trong lúc bàn phím đang trượt lên
+                    resizeTimeout = setTimeout(() => {
+                        resizeModel();
+                    }, 200);
+                };
+
+                // Gọi resize ngay lập tức
                 resizeModel();
-                setTimeout(resizeModel, 100);
-                setTimeout(resizeModel, 500); // Check lại lần nữa cho chắc
 
                 // Lắng nghe sự kiện resize cửa sổ
-                window.addEventListener('resize', resizeModel);
+                window.addEventListener('resize', debouncedResize);
+
+                // Lưu lại reference để cleanup (quan trọng)
+                (pixiApp.current as any).resizeListener = debouncedResize;
+
 
                 // --- IDLE ANIMATION CONTROL ---
                 if (model.internalModel.motionManager) {
@@ -386,6 +412,10 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
             isMounted = false;
             if (testMouthIntervalRef.current) window.clearInterval(testMouthIntervalRef.current);
             if (pixiApp.current) {
+                // Cleanup listener đã gán
+                if ((pixiApp.current as any).resizeListener) {
+                    window.removeEventListener('resize', (pixiApp.current as any).resizeListener);
+                }
                 pixiApp.current.destroy(true);
                 pixiApp.current = null;
             }
@@ -440,14 +470,7 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
             <div ref={containerRef} className="w-full h-full" />
 
-            {/* Status Overlay (SPEAKING Indicator ONLY) */}
-            <div className="absolute top-3 left-3 pointer-events-none z-20">
-                {isPlaying && (
-                    <div className="bg-green-500/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-[10px] font-bold animate-bounce border border-green-400/30 shadow-lg">
-                        🔊 SPEAKING...
-                    </div>
-                )}
-            </div>
+
 
             {internalStatus && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-lg px-8 py-4 rounded-2xl text-white text-sm font-medium animate-pulse z-50 shadow-2xl border border-white/10">
