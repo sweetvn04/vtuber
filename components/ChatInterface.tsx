@@ -7,60 +7,77 @@ interface ChatInterfaceProps {
     onSendMessage?: (text: string) => void;
     disabled?: boolean;
     isThinking?: boolean;
+    isDarkMode?: boolean;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessage, disabled, isThinking }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessage, disabled, isThinking, isDarkMode = false }) => {
     const [input, setInput] = useState('');
     const [isRecording, setIsRecording] = useState(false);
+    // Sử dụng Ref để tránh sự cố Race Condition (Mic đang khởi động lại bị gọi tiếp)
+    const isRecordingRef = useRef(false);
+    const isStartingRef = useRef(false); // Chốt chặn quan trọng
+    const micAccessGrantedRef = useRef(false); // Đánh dấu đã có quyền Mic hay chưa
+
     const recognitionRef = useRef<any>(null);
     const messageEndRef = useRef<HTMLDivElement>(null);
     const isPushToTalkRef = useRef(false);
 
-    // --- RECOGNITION LOGIC ---
+    // Hàm cập nhật trạng thái an toàn
+    const setRecordingState = (state: boolean) => {
+        setIsRecording(state);
+        isRecordingRef.current = state;
+        if (state) isStartingRef.current = false; // Mở khóa khi đã bắt đầu thành công
+    };
+
     useEffect(() => {
         const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (SpeechRecognition && !recognitionRef.current) {
             const recognition = new SpeechRecognition();
-            recognition.continuous = false;
+            recognition.continuous = false; // Ngắt ngay khi nói xong câu
             recognition.interimResults = true;
             recognition.lang = 'en-US';
 
             recognition.onresult = (event: any) => {
                 let interimTranscript = '';
                 let finalTranscript = '';
-
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interimTranscript += event.results[i][0].transcript;
-                    }
+                    if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+                    else interimTranscript += event.results[i][0].transcript;
                 }
-
                 if (finalTranscript) {
                     setInput('');
-                    if (onSendMessage) {
-                        onSendMessage(finalTranscript);
-                    }
-                    setIsRecording(false);
+                    if (onSendMessage) onSendMessage(finalTranscript);
+                    setRecordingState(false);
                 } else if (interimTranscript) {
                     setInput(interimTranscript);
                 }
             };
 
             recognition.onstart = () => {
-                setIsRecording(true);
+                setRecordingState(true);
             };
 
             recognition.onerror = (event: any) => {
-                if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                    console.warn('Speech recognition:', event.error);
+                // Xử lý các lỗi nghiêm trọng về phần cứng
+                if (event.error === 'audio-capture' || event.error === 'not-allowed') {
+                    console.warn('Microphone Error:', event.error);
+                    micAccessGrantedRef.current = false; // Reset quyền để lần sau thử kết nối lại
+                    alert("Không thể bắt được âm thanh (audio-capture).\n\n- Kiểm tra xem Mic có bị lỏng không.\n- Kiểm tra xem có ứng dụng khác đang chiếm Mic không.\n- Trên Linux, thử tắt PulseAudio/Pipewire rồi bật lại.");
                 }
-                setIsRecording(false);
+
+                // Bỏ qua lỗi 'no-speech' thường gặp khi giữ phím lâu mà chưa nói
+                if (event.error !== 'no-speech' && event.error !== 'aborted' && event.error !== 'audio-capture') {
+                    console.warn('Speech recognition error:', event.error);
+                }
+
+                // Nếu lỗi xảy ra, phải reset mọi trạng thái để cho phép thử lại
+                setRecordingState(false);
+                isStartingRef.current = false;
             };
 
             recognition.onend = () => {
-                setIsRecording(false);
+                setRecordingState(false);
+                isStartingRef.current = false;
             };
 
             recognitionRef.current = recognition;
@@ -68,61 +85,80 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
     }, [onSendMessage]);
 
     const startRecording = () => {
-        if (!recognitionRef.current) return;
+        // CHỐT CHẶN: Nếu mic đang bật HOẶC đang trong quá trình bật -> Dừng ngay
+        if (!recognitionRef.current || isRecordingRef.current || isStartingRef.current) return;
 
-        navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(() => {
+        const executeStart = () => {
+            try {
+                isStartingRef.current = true;
                 setInput('');
-                setIsRecording(true);
-                try {
-                    recognitionRef.current.start();
-                } catch (err) {
-                    setIsRecording(false);
-                }
-            })
-            .catch((err) => {
-                console.error("Microphone access denied:", err);
-                setIsRecording(false);
-            });
+                recognitionRef.current.start();
+            } catch (err) {
+                console.error("Error starting speech recognition:", err);
+                isStartingRef.current = false;
+                setRecordingState(false);
+            }
+        };
+
+        // Nếu chưa từng check quyền Mic thành công, hãy Warm-up trước
+        if (!micAccessGrantedRef.current) {
+            isStartingRef.current = true; // Khóa tạm thời
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then((stream) => {
+                    // Đánh thức thành công! Tắt stream này đi để nhường cho SpeechRecognition
+                    stream.getTracks().forEach(t => t.stop());
+                    micAccessGrantedRef.current = true;
+
+                    // Giờ thì start thật
+                    executeStart();
+                })
+                .catch((err) => {
+                    console.error("Mic access denied:", err);
+                    alert("Lỗi truy cập Microphone. Vui lòng cấp quyền và thử lại.");
+                    isStartingRef.current = false;
+                });
+            return;
+        }
+
+        // Fast Path: Đã có quyền, start luôn cho nóng
+        executeStart();
     };
 
     const stopRecording = () => {
         if (recognitionRef.current) {
             recognitionRef.current.stop();
-            setIsRecording(false);
+            // Không set false ngay, đợi onend xử lý để đồng bộ
         }
     };
 
     const toggleRecording = () => {
-        if (!recognitionRef.current) {
-            alert("Trình duyệt của bạn không hỗ trợ Speech Recognition.\n\nLưu ý:\n- Hãy sử dụng Chrome hoặc Edge.\n- Đảm bảo truy cập qua 'localhost' hoặc 'https'.");
-            return;
-        }
-
-        if (isRecording) {
-            stopRecording();
-        } else {
-            startRecording();
-        }
+        if (!recognitionRef.current) return;
+        isRecordingRef.current ? stopRecording() : startRecording();
     };
 
-    // --- KEYBOARD LISTENERS (PUSH TO TALK) ---
+    // --- PUSH TO TALK (REWRITTEN & FIXED) ---
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key.toLowerCase() === 'm' &&
-                !e.repeat &&
-                document.activeElement?.tagName !== 'INPUT' &&
-                document.activeElement?.tagName !== 'TEXTAREA') {
+            // Kiểm tra kỹ các điều kiện để tránh xung đột
+            const isInputFocused = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName || '');
+            if (isInputFocused) return;
 
-                isPushToTalkRef.current = true;
-                startRecording();
+            if (e.key.toLowerCase() === 'm' && !e.repeat) {
+                // Chỉ bắt đầu nếu chưa đang ghi âm
+                if (!isRecordingRef.current) {
+                    isPushToTalkRef.current = true;
+                    startRecording();
+                }
             }
         };
 
         const handleKeyUp = (e: KeyboardEvent) => {
-            if (e.key.toLowerCase() === 'm' && isPushToTalkRef.current) {
-                isPushToTalkRef.current = false;
-                stopRecording();
+            if (e.key.toLowerCase() === 'm') {
+                // Nếu đang trong chế độ Push-to-Talk thì mới dừng
+                if (isPushToTalkRef.current) {
+                    stopRecording();
+                    isPushToTalkRef.current = false;
+                }
             }
         };
 
@@ -135,10 +171,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
         };
     }, []);
 
-    // --- AUTO SCROLL ---
     useEffect(() => {
         messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [chatLog]);
+    }, [chatLog, isThinking]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -148,60 +183,106 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ chatLog = [], onSendMessa
         }
     };
 
+    const baseText = isDarkMode ? 'text-gray-200' : 'text-gray-800';
+    const subText = isDarkMode ? 'text-gray-400' : 'text-gray-500';
+    const assistantBg = isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-gray-100 border-gray-200';
+    const userBg = 'bg-blue-600 text-white';
+    const inputBg = isDarkMode ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400';
+
     return (
-        <div className="flex flex-col h-full bg-gradient-to-br from-[#fff5f5] to-[#ffe8e8] rounded-2xl overflow-hidden">
-            <div className="grow overflow-y-auto p-6 block scrollbar-thin scrollbar-thumb-[#fcb69f]/50 scrollbar-track-transparent">
-                <div className="p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm bg-white text-[#2d3748] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-[#fcb69f]/20 rounded-bl-sm animate-in slide-in-from-bottom-2 duration-300">
-                    <p>Hi there! How can I help you today?</p>
+        <div className={`flex flex-col h-full ${baseText}`}>
+            {/* Header */}
+            <div className={`px-4 py-3 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'}`}>
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <h2 className="font-bold text-xs tracking-wider uppercase opacity-70">Live Chat</h2>
                 </div>
+            </div>
+
+            {/* Messages */}
+            <div className="grow overflow-y-auto p-4 space-y-4 bg-transparent">
+                <div className="flex flex-col gap-1 max-w-[85%]">
+                    <span className={`text-[10px] font-bold ml-2 uppercase opacity-50 ${subText}`}>Hiyori</span>
+                    <div className={`p-3 rounded-2xl rounded-tl-none shadow-sm border text-sm leading-relaxed ${assistantBg} ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
+                        <p>Chào bạn! Mình có thể giúp gì cho bạn hôm nay? ฅ^•ﻌ•^ฅ</p>
+                    </div>
+                </div>
+
                 {chatLog.map((msg, index) => (
-                    <div
-                        key={index}
-                        className={`p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm animate-in slide-in-from-bottom-2 duration-300 ${msg.role === 'assistant'
-                            ? 'bg-white text-[#2d3748] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-[#fcb69f]/20 rounded-bl-sm'
-                            : 'bg-gradient-to-br from-[#fcb69f] to-[#ffa07a] text-white self-end ml-auto shadow-[0_2px_12px_rgba(252,182,159,0.3)] rounded-br-sm'
-                            }`}
-                    >
-                        <p className="break-words m-0">{msg.content}</p>
+                    <div key={index} className={`flex flex-col gap-1 max-w-[85%] ${msg.role === 'assistant' ? 'self-start' : 'self-end'}`}>
+                        <span className={`text-[10px] font-bold px-2 opacity-50 uppercase ${subText} ${msg.role === 'assistant' ? 'text-left' : 'text-right'}`}>
+                            {msg.role === 'assistant' ? 'Assistant' : 'You'}
+                        </span>
+                        <div className={`p-3 rounded-2xl shadow-sm text-sm leading-relaxed border ${msg.role === 'assistant'
+                            ? `${assistantBg} rounded-tl-none ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`
+                            : `${userBg} rounded-tr-none border-transparent`
+                            }`}>
+                            <p className="break-words m-0">{msg.content}</p>
+                        </div>
                     </div>
                 ))}
+
                 {isThinking && (
-                    <div className="p-3.5 px-4.5 my-4 rounded-2xl max-w-[75%] leading-relaxed text-sm bg-white text-[#718096] self-start shadow-[0_2px_8px_rgba(252,182,159,0.15)] border border-dashed border-[#fcb69f]/30 rounded-bl-sm animate-pulse flex items-center gap-2">
-                        <span>Hiyori is thinking... 💭</span>
+                    <div className={`flex gap-2 p-3 rounded-full animate-pulse border max-w-[80px] justify-center ${assistantBg}`}>
+                        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40 animate-bounce" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 animate-bounce delay-150" />
+                        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-80 animate-bounce delay-300" />
                     </div>
                 )}
                 <div ref={messageEndRef} />
             </div>
 
-            <form className="flex gap-2.5 p-5 px-6 bg-white border-t border-[#fcb69f]/20 items-center" onSubmit={handleSubmit}>
-                <input
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder={disabled ? "Chọn chat để bắt đầu..." : (isRecording ? "Hiyori đang nghe..." : "Nhập tin nhắn (Hoặc giữ phím M để nói)...")}
-                    disabled={disabled}
-                    className="grow border-2 border-[#fcb69f]/30 p-3 px-4.5 rounded-[24px] bg-[#fff9f5] text-[#2d3748] text-sm transition-all duration-200 outline-none focus:border-[#fcb69f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(252,182,159,0.15)] disabled:opacity-60 disabled:cursor-not-allowed placeholder-[#a0aec0]"
-                />
-                <button
-                    type="submit"
-                    disabled={disabled || !input.trim()}
-                    className="p-3 px-6 border-none rounded-[24px] bg-gradient-to-br from-[#fcb69f] to-[#ffa07a] text-white font-semibold text-sm cursor-pointer transition-all duration-200 shadow-[0_2px_8px_rgba(252,182,159,0.3)] min-w-[80px] hover:not-disabled:-translate-y-0.5 hover:not-disabled:shadow-[0_4px_12px_rgba(252,182,159,0.4)] active:not-disabled:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                    Gửi
-                </button>
-                <button
-                    type="button"
-                    onClick={toggleRecording}
-                    disabled={disabled}
-                    className={`p-3 px-4 border-none rounded-full text-lg cursor-pointer transition-all duration-200 w-12 h-12 flex items-center justify-center hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${isRecording
-                        ? 'bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]'
-                        : 'bg-gradient-to-br from-[#ffeaa7] to-[#fdcb6e] text-[#2d3748] shadow-[0_2px_8px_rgba(255,234,167,0.4)]'
-                        }`}
-                    title={isRecording ? "Đang lắng nghe..." : "Nói chuyện với Hiyori (Nhấn hoặc Giữ phím M)"}
-                >
-                    {isRecording ? '⏹️' : '🎤'}
-                </button>
-            </form>
+            {/* Input */}
+            <div className={`p-4 ${isDarkMode ? 'bg-gray-800' : 'bg-white'} border-t ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                <form className="relative flex items-center gap-2" onSubmit={handleSubmit}>
+                    <div className="relative grow">
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder={disabled ? "Chọn chat để bắt đầu..." : (isRecording ? "Listening..." : "Nói chuyện với mình đi...")}
+                            disabled={disabled}
+                            className={`w-full border-2 p-3 pl-4 pr-10 rounded-full text-sm outline-none transition-all focus:border-blue-400 ${inputBg}`}
+                        />
+                        {isRecording && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
+                                <div className="w-1 h-3 bg-red-500 animate-voice-bar-1" />
+                                <div className="w-1 h-5 bg-red-500 animate-voice-bar-2" />
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={toggleRecording}
+                        disabled={disabled}
+                        className={`w-11 h-11 flex items-center justify-center rounded-full transition-all shadow-sm active:scale-95 ${isRecording
+                            ? 'bg-red-500 text-white animate-pulse'
+                            : isDarkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                            }`}
+                    >
+                        {isRecording ? '⏹' : '🎤'}
+                    </button>
+
+                    <button
+                        type="submit"
+                        disabled={disabled || !input.trim()}
+                        className="h-11 px-5 rounded-full bg-blue-600 text-white font-bold text-sm shadow-sm hover:bg-blue-700 active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                        SEND
+                    </button>
+                </form>
+                <p className={`text-[9px] text-center mt-2 opacity-40 font-bold uppercase tracking-widest ${subText}`}>
+                    Hold [M] to talk • Enter to send
+                </p>
+            </div>
+
+            <style jsx>{`
+                @keyframes voice-bar-1 { 0%, 100% { height: 8px; } 50% { height: 16px; } }
+                @keyframes voice-bar-2 { 0%, 100% { height: 12px; } 50% { height: 24px; } }
+                .animate-voice-bar-1 { animation: voice-bar-1 0.6s ease-in-out infinite; }
+                .animate-voice-bar-2 { animation: voice-bar-2 0.6s ease-in-out infinite 0.1s; }
+            `}</style>
         </div>
     );
 };

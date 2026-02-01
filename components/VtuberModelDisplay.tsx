@@ -50,6 +50,10 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
     const currentMouthValue = useRef(0); // Lưu giá trị mở miệng cho vòng lặp Pixi
     const isPlayingRef = useRef(false);   // Ref để tránh lỗi stale closure trong sự kiện Pixi
 
+    // LipSync Realistic Refs
+    const currentVowelRef = useRef("ParamA");
+    const lastVowelChangeRef = useRef(0);
+
     // Web Audio API refs for LipSync
     const audioContextRef = useRef<AudioContext | null>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
@@ -170,9 +174,22 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
         };
     }, [audioUrl]);
 
+    // Danh sách các model có sẵn
+    const MODELS = [
+        { name: 'Mao Pro', path: 'models/mao/mao_pro_en/runtime/mao_pro.model3.json' },
+        { name: 'Hiyori', path: 'models/hiyori/hiyori_free_t08.model3.json' },
+    ];
+
+    const [modelIndex, setModelIndex] = useState(0);
+    const [isIdleEnabled, setIsIdleEnabled] = useState(false); // Mặc định tắt Idle cho đỡ loi nhoi
+
+    const toggleModel = () => setModelIndex((prev) => (prev + 1) % MODELS.length);
+    const toggleIdle = () => setIsIdleEnabled(!isIdleEnabled);
+
+    // Effect khởi tạo Pixi khi modelIndex thay đổi
     useEffect(() => {
         (window as any).PIXI = PIXI;
-        const modelPath = 'models/hiyori/hiyori_free_t08.model3.json';
+        const modelPath = MODELS[modelIndex].path;
         let isMounted = true;
 
         async function initializePixi() {
@@ -199,62 +216,160 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
                 setInternalStatus('Đang tải model Live2D...');
                 const model = await Live2DModel.from(modelPath);
+
                 modelRef.current = model;
 
-                // Vô hiệu hóa các chuyển động Idle và các motion tự động
-                if (model.internalModel.motionManager) {
-                    model.internalModel.motionManager.stopAllMotions();
-                    // Xoá các nhóm motion để model không tự động chạy các chuyển động Idle nữa
-                    (model.internalModel.motionManager as any).groups = {};
+                // --- DEBUG PARAMETERS ---
+                // In ra danh sách tham số để tìm đúng ID cho miệng
+                if (model.internalModel && model.internalModel.coreModel) {
+                    const core = model.internalModel.coreModel as any;
+                    // Lấy danh sách ID (tùy version Live2D mà cách lấy khác nhau)
+                    // Cubism 4 thường dùng getParameterIds() hoặc truy cập trực tiếp _parameterIds
+                    let paramIds: string[] = [];
+
+                    if (core._parameterIds) {
+                        paramIds = core._parameterIds;
+                    } else if (core.getParameterIds) {
+                        paramIds = core.getParameterIds();
+                    }
+
+                    console.group("🔍 Model Parameters Inspection");
+                    const mouthParams = paramIds.filter(id => id.toLowerCase().includes('mouth'));
+                    console.log("All Params:", paramIds);
+                    console.log("👄 Mouth Params Found:", mouthParams);
+                    console.groupEnd();
+
+                    if (mouthParams.length > 0) {
+                        addLog(`Tìm thấy Param miệng: ${mouthParams.join(', ')}`);
+                    } else {
+                        addLog("⚠️ Không tìm thấy Param có chữ 'Mouth'");
+                    }
                 }
 
-                // Sử dụng Ticker để ghi đè các tham số SAU KHI model đã tính toán chuyển động mặc định (Motion/Physics)
+                // --- 1. SET ANCHOR TO BOTTOM CENTER ---
+                // Đặt gốc tọa độ ở CHÂN model để dễ căn chỉnh đứng trên sàn
+                model.anchor.set(0.5, 1.0);
+
+                // --- 2. ADD TO STAGE ---
+                pixiApp.current.stage.addChild(model as any);
+
+                // --- 3. RESPONSIVE SCALING & POSITIONING (FIXED v3) ---
+                const resizeModel = () => {
+                    if (!modelRef.current || !pixiApp.current || !containerRef.current) return;
+
+                    // Lấy kích thước thực từ thẻ DIV cha (ổn định hơn screen của Pixi)
+                    const parentW = containerRef.current.clientWidth;
+                    const parentH = containerRef.current.clientHeight;
+
+                    // Cập nhật lại kích thước renderer nếu cần (để tránh bị vỡ hình)
+                    pixiApp.current.renderer.resize(parentW, parentH);
+
+                    const originalHeight = model.internalModel.originalHeight;
+                    const originalWidth = model.internalModel.originalWidth;
+
+                    // Tính toán Scale ZOOM CẬN CẢNH (Close-up Shot)
+                    // Yêu cầu: Hiển thị khoảng 60% thân trên.
+                    // => Model Height sẽ lớn hơn Parent Height rất nhiều.
+                    // => Tỉ lệ Zoom ~ 1.7 đến 1.8 lần chiều cao màn hình.
+                    let targetScale = (parentH / originalHeight) * 1.7;
+
+                    // Logic Mobile: Nếu màn hình hẹp, có thể cần zoom nhỏ lại xíu để không mất 2 bên vai quá nhiều
+                    // Nhưng vẫn ưu tiên cận cảnh mặt
+                    if (parentW < parentH) {
+                        targetScale = (parentH / originalHeight) * 1.4; // Mobile zoom vừa phải hơn chút
+                    }
+
+                    model.scale.set(targetScale);
+
+                    // Đặt vị trí:
+                    // Mục tiêu: Đỉnh đầu nằm sát mép trên màn hình (hoặc cách 1 chút top margin).
+                    // Vì Anchor = (0.5, 1.0) tức là Gốc ở Chân.
+                    // Vị trí đỉnh đầu (Top) = position.y - model.height (đã scale).
+                    // Muốn Top = 0 + margin (ví dụ 5% parentH).
+                    // => position.y = model.height + (parentH * 0.05).
+
+                    // Lấy chiều cao thực tế sau khi scale
+                    const currentHeight = originalHeight * targetScale;
+
+                    // Đặt chân model tít xuống dưới để đầu trồi lên trên
+                    model.position.set(parentW * 0.5, currentHeight + (parentH * 0.05));
+                };
+
+                // Gọi resize ngay lập tức và sau 100ms để đảm bảo layout ổn định
+                resizeModel();
+                setTimeout(resizeModel, 100);
+                setTimeout(resizeModel, 500); // Check lại lần nữa cho chắc
+
+                // Lắng nghe sự kiện resize cửa sổ
+                window.addEventListener('resize', resizeModel);
+
+                // --- IDLE ANIMATION CONTROL ---
+                if (model.internalModel.motionManager) {
+                    if (!isIdleEnabled) {
+                        // Tắt hết motion nếu không bật Idle
+                        model.internalModel.motionManager.stopAllMotions();
+                        (model.internalModel.motionManager as any).groups = {};
+                        addLog("🚫 Idle Animations: DISABLED");
+                    } else {
+                        // Nếu bật Idle, PixiLive2DDisplay sẽ tự động load và play 'idle' group mặc định
+                        addLog("✅ Idle Animations: ENABLED");
+                    }
+                }
+
+                // Sử dụng Ticker để cập nhật LipSync
                 pixiApp.current.ticker.add(() => {
                     if (!modelRef.current) return;
                     const core = modelRef.current.internalModel.coreModel;
 
+                    // Danh sách đầy đủ các tham số miệng
+                    const ALL_MOUTH_PARAMS = ["ParamMouthOpen", "ParamMouthOpenY", "MouthOpen", "ParamA", "ParamI", "ParamU", "ParamE", "ParamO"];
+
                     if (isPlayingRef.current || debugSpeakingRef.current) {
                         const finalOpen = currentMouthValue.current;
+
                         if (core && typeof (core as any).setParameterValueById === 'function') {
+                            // --- THUẬT TOÁN LIP-SYNC THỰC TẾ (VOWEL MIXING) ---
                             (core as any).setParameterValueById("ParamMouthOpen", finalOpen);
                             (core as any).setParameterValueById("ParamMouthOpenY", finalOpen);
-                            (core as any).setParameterValueById("ParamMouthForm", 1.0); // Cười nhẹ khi nói
+                            (core as any).setParameterValueById("MouthOpen", finalOpen);
+
+                            if (finalOpen > 0.1) {
+                                const now = Date.now();
+                                if (now - lastVowelChangeRef.current > 120) {
+                                    const rand = Math.random();
+                                    if (rand < 0.4) currentVowelRef.current = "ParamA";
+                                    else if (rand < 0.7) currentVowelRef.current = "ParamO";
+                                    else if (rand < 0.85) currentVowelRef.current = "ParamE";
+                                    else currentVowelRef.current = Math.random() > 0.5 ? "ParamI" : "ParamU";
+                                    lastVowelChangeRef.current = now;
+                                }
+                            }
+
+                            const activeVowel = currentVowelRef.current;
+                            const vowels = ["ParamA", "ParamI", "ParamU", "ParamE", "ParamO"];
+
+                            vowels.forEach(v => {
+                                (core as any).setParameterValueById(v, v === activeVowel ? finalOpen : 0);
+                            });
+
+                            (core as any).setParameterValueById("ParamMouthForm", 1.0);
+                            (core as any).setParameterValueById("MouthForm", 1.0);
                         }
                     } else {
-                        // Đảm bảo đóng miệng khi không nói
                         if (core && typeof (core as any).setParameterValueById === 'function') {
-                            (core as any).setParameterValueById("ParamMouthOpen", 0);
-                            (core as any).setParameterValueById("ParamMouthOpenY", 0);
+                            ALL_MOUTH_PARAMS.forEach(id => {
+                                (core as any).setParameterValueById(id, 0);
+                            });
                         }
                     }
 
-                    // Damping các chuyển động tự động để model tĩnh hơn (chạy liên tục hậu update)
                     if (core && typeof (core as any).setParameterValueById === 'function' && typeof (core as any).getParameterValueById === 'function') {
                         const breathVal = (core as any).getParameterValueById("ParamBreath");
                         if (typeof breathVal === 'number') (core as any).setParameterValueById("ParamBreath", breathVal * 0.6);
-
-                        const bodyX = (core as any).getParameterValueById("ParamBodyAngleX");
-                        if (typeof bodyX === 'number') (core as any).setParameterValueById("ParamBodyAngleX", bodyX * 0.5);
                     }
                 });
 
                 if (!isMounted || !pixiApp.current) return;
-
-                pixiApp.current.stage.addChild(model as any);
-
-                const scale = Math.min(w / model.width, h / model.height) * 2;
-                model.scale.set(scale);
-                model.x = w / 2;
-                model.y = h / 2;
-                model.anchor.set(0.5, 0.2);
-
-                model.interactive = true;
-                model.autoInteract = true;
-
-                // Giảm độ nhạy khi quay đầu/nhìn theo chuột để model bớt "loi nhoi"
-                if ((model as any).focusHandler) {
-                    (model as any).focusHandler.config.factor = 0.5;
-                }
 
                 setInternalStatus('');
                 addLog('✓ Model Ready');
@@ -275,7 +390,46 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 pixiApp.current = null;
             }
         };
-    }, []);
+    }, [modelIndex]); // Bỏ isIdleEnabled khỏi dependency để tránh reload model
+
+    // --- EFFECT: QUẢN LÝ IDLE ANIMATION & INTERACTION RIÊNG BIỆT ---
+    useEffect(() => {
+        const model = modelRef.current;
+        if (!model || !model.internalModel || !model.internalModel.motionManager) return;
+
+        const motionManager = model.internalModel.motionManager;
+
+        if (isPlaying) {
+            // TRƯỜNG HỢP 1: ĐANG NÓI
+            // Ưu tiên cao nhất: Tắt ngay Idle để tập trung LipSync
+            motionManager.stopAllMotions();
+            (motionManager as any).idleMotionGroup = undefined; // Vô hiệu hóa auto-idle
+
+            // Tắt tương tác chuột khi đang nói để tránh xung đột cử chỉ
+            model.interactive = false;
+            model.autoInteract = false;
+
+        } else {
+            // TRƯỜNG HỢP 2: KHÔNG NÓI (RẢNH)
+            if (isIdleEnabled) {
+                // Nếu User bật Idle: Kích hoạt lại
+                (motionManager as any).idleMotionGroup = 'idle';
+                model.interactive = true;
+                model.autoInteract = true;
+
+                // Kích hoạt ngay 1 idle motion nếu đang đứng yên
+                if (motionManager.isFinished()) {
+                    motionManager.startRandomMotion('idle', 'low');
+                }
+            } else {
+                // Nếu User tắt Idle: Freeze hoàn toàn
+                motionManager.stopAllMotions();
+                (motionManager as any).idleMotionGroup = undefined;
+                model.interactive = false;
+                model.autoInteract = false;
+            }
+        }
+    }, [isPlaying, isIdleEnabled, internalStatus]); // Chạy lại khi trạng thái thay đổi hoặc model load xong
 
     return (
         <div className="w-full h-full relative overflow-hidden bg-transparent">
@@ -305,6 +459,21 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
             {/* Test Controls */}
             <div className="absolute top-3 right-3 flex gap-2">
+                <button
+                    onClick={toggleModel}
+                    className="px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border bg-black/30 border-white/10 text-white/90 hover:bg-black/50 hover:text-white transition-all font-bold shadow-sm"
+                >
+                    🔄 {MODELS[modelIndex].name}
+                </button>
+                <button
+                    onClick={toggleIdle}
+                    className={`px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border transition-all font-bold shadow-sm ${isIdleEnabled
+                        ? 'bg-green-500/50 border-green-400 text-white animate-pulse'
+                        : 'bg-black/30 border-white/10 text-white/70 hover:bg-black/50'
+                        }`}
+                >
+                    {isIdleEnabled ? '🤸 Idle: ON' : '🧍 Idle: OFF'}
+                </button>
                 <button
                     onClick={toggleTestSpeaking}
                     className={`px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border transition-all ${debugSpeaking

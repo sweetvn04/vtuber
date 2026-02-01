@@ -82,6 +82,14 @@
     {
       "role": "assistant",
       "content": "Oh my goodness! 🥺 That sounds hard! 💪 Sending you lots of good vibes and strength, sweetvn! You’re doing a great job! 😊"
+    },
+    {
+      "role": "user",
+      "content": "hello can you hear me"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori can definitely hear you, sweetvn! 😄 Just checking in! 😊"
     }
   ]
 }

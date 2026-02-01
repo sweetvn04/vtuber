@@ -163,47 +163,109 @@ export default function Home() {
         return () => stream?.getTracks().forEach(t => t.stop());
     }, [isWebcamOn]);
 
+    const [showChatOnMobile, setShowChatOnMobile] = useState(true);
+    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State cho Mobile Menu
+
+    const toggleTheme = () => setIsDarkMode(!isDarkMode);
+
     useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
     return (
-        <div className="flex w-screen h-screen p-5 gap-5 box-border bg-gradient-to-br from-[#ffecd2] via-[#fcb69f] to-[#ffeaa7] overflow-hidden animate-in fade-in duration-700">
-            <canvas ref={canvasRef} className="hidden" />
+        <div className={`flex w-full h-[100dvh] overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-slate-800'}`}>
 
-            <ChatHistorySidebar
-                sessions={sessions}
-                selectedSessionId={selectedSessionId}
-                onSelectChat={(chat: any) => setSelectedSessionId(chat.id)}
-                onNewChat={handleNewChat}
-                onDeleteSession={handleDeleteSession}
-            />
+            {/* MOBILE ONLY: MENU BUTTON (Top Left) */}
+            <button
+                className={`lg:hidden absolute top-4 left-4 z-50 p-2 rounded-full shadow-md ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-700'}`}
+                onClick={() => setIsMobileMenuOpen(true)}
+            >
+                ☰
+            </button>
 
-            <div className="flex-1 flex flex-col gap-5 min-w-0 relative z-10">
-                {false && (<div className="flex justify-center items-center bg-white rounded-[20px] p-6 shadow-[0_4px_20px_rgba(252,182,159,0.15),0_2px_8px_rgba(0,0,0,0.05)] border border-white/80 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(252,182,159,0.2),0_4px_12px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 animate-in slide-in-from-bottom-5 duration-700 delay-100">
-                    <UserCamera
-                        videoRef={videoRef}
-                        isOn={isWebcamOn}
-                        onToggle={() => setIsWebcamOn(!isWebcamOn)}
-                        scanData={scanData}
-                    />
-                </div>)}
-                <div className="flex-grow min-h-0 bg-white rounded-[20px] shadow-[0_4_20px_rgba(252,182,159,0.15),0_2px_8px_rgba(0,0,0,0.05)] border border-white/80 overflow-hidden animate-in slide-in-from-bottom-5 duration-700 delay-200">
-                    <ChatInterface
-                        chatLog={chatLog}
-                        onSendMessage={handleSendMessage}
-                        disabled={!selectedSessionId}
-                        isThinking={isThinking} // <--- TRUYỀN XUỐNG ĐÂY
+            {/* MOBILE ONLY: BACKDROP OVERLAY */}
+            {isMobileMenuOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                />
+            )}
+
+            {/* 1. SIDEBAR (Responsive Wrapper) */}
+            {/* Desktop: Static Block. Mobile: Fixed Slide-over Panel */}
+            <div className={`
+                fixed inset-y-0 left-0 z-50 w-72 transform transition-transform duration-300 ease-in-out lg:relative lg:translate-x-0 lg:w-64 lg:block border-r
+                ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+                ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
+            `}>
+                <div className="h-full relative">
+                    {/* Mobile Close Button */}
+                    <button
+                        className="lg:hidden absolute top-4 right-4 z-50 text-xl font-bold opacity-60"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                        ✕
+                    </button>
+
+                    <ChatHistorySidebar
+                        sessions={sessions}
+                        selectedSessionId={selectedSessionId}
+                        onSelectChat={(chat: any) => {
+                            setSelectedSessionId(chat.id);
+                            setIsMobileMenuOpen(false); // Đóng menu khi chọn chat
+                        }}
+                        onNewChat={() => {
+                            handleNewChat();
+                            setIsMobileMenuOpen(false);
+                        }}
+                        onDeleteSession={handleDeleteSession}
+                        isDarkMode={isDarkMode}
                     />
                 </div>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center bg-white rounded-[20px] p-6 shadow-[0_4px_20px_rgba(252,182,159,0.15),0_2px_8px_rgba(0,0,0,0.05)] border border-white/80 min-w-0 relative overflow-hidden z-10 animate-in slide-in-from-bottom-5 duration-700 delay-300">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#ffecd2] via-[#fcb69f] to-[#ffeaa7]" />
-                <VtuberModelDisplay status={status} audioUrl={currentAudioUrl} />
-            </div>
+            {/* MAIN CONTENT WRAPPER */}
+            <div className="flex-1 flex flex-col lg:flex-row relative min-w-0">
 
-            {/* Decorative background blobs */}
-            <div className="fixed w-[300px] h-[300px] rounded-full opacity-10 pointer-events-none z-0 bg-[radial-gradient(circle,#fcb69f_0%,transparent_70%)] top-[-100px] right-[-100px] animate-pulse" />
-            <div className="fixed w-[400px] h-[400px] rounded-full opacity-10 pointer-events-none z-0 bg-[radial-gradient(circle,#ffeaa7_0%,transparent_70%)] bottom-[-150px] left-[-150px] animate-pulse" />
+                {/* THEME TOGGLE BUTTON (Floating Top Right) */}
+                {/* Dời sang trái 1 xíu trên mobile để ko bị vướng mép */}
+                <button
+                    onClick={toggleTheme}
+                    className={`absolute top-4 right-4 z-50 p-2 rounded-full shadow-md transition-all duration-300 ${isDarkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-white text-orange-500 hover:bg-gray-100'
+                        }`}
+                    title="Toggle Dark Mode"
+                >
+                    {isDarkMode ? '🌙' : '☀️'}
+                </button>
+
+                {/* 2. MODEL AREA */}
+                {/* Mobile: Chiếm 60% chiều cao. Desktop: Chiếm phần còn lại (flex-1) */}
+                <div className={`relative h-[55%] lg:h-full lg:flex-1 overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                    {/* Status Badge: Dời xuống dưới nút Menu hamburger một chút trên Mobile */}
+                    <div className={`absolute top-4 left-16 lg:left-4 z-10 px-3 py-1 rounded-full text-xs font-bold shadow-sm border transition-colors duration-300 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white/80 border-gray-200 text-slate-800'
+                        }`}>
+                        {status}
+                    </div>
+
+                    {/* Vùng chứa Model */}
+                    <div className="w-full h-full">
+                        <VtuberModelDisplay status={status} audioUrl={currentAudioUrl} />
+                    </div>
+                </div>
+
+                {/* 3. CHAT AREA */}
+                {/* Mobile: Chiếm 40% chiều cao (phía dưới). Desktop: Cột bên phải rộng 400px */}
+                <div className={`h-[45%] lg:h-full lg:w-[400px] border-t lg:border-t-0 lg:border-l z-10 shadow-sm flex flex-col transition-colors duration-300 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                    }`}>
+                    <ChatInterface
+                        chatLog={chatLog}
+                        onSendMessage={handleSendMessage}
+                        disabled={!selectedSessionId}
+                        isThinking={isThinking}
+                        isDarkMode={isDarkMode}
+                    />
+                </div>
+
+            </div>
         </div>
     );
 }
