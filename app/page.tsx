@@ -8,7 +8,24 @@ import VtuberModelDisplay from "@/components/VtuberModelDisplay";
 import UserCamera from "@/components/UserCamera";
 import ChatHistorySidebar from "@/components/ChatHistorySidebar";
 
-const API_BASE = "http://localhost:8080";
+// Xóa dòng này đi hoặc comment lại
+// const API_BASE = "http://localhost:8080";
+
+// --- HELPERS ---
+const getApiBase = () => {
+    if (typeof window !== 'undefined') {
+        // Tự động lấy Hostname hiện tại (localhost hoặc IP LAN)
+        return `http://${window.location.hostname}:8080`;
+    }
+    return "http://localhost:8080";
+};
+
+const getWsBase = () => {
+    if (typeof window !== 'undefined') {
+        return `ws://${window.location.hostname}:8080`;
+    }
+    return "ws://localhost:8080";
+};
 
 function base64ToBlob(base64: string, type: string) {
     const binStr = atob(base64);
@@ -35,29 +52,37 @@ export default function Home() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     const fetchSessions = useCallback(async () => {
+        const url = `${getApiBase()}/api/chat/sessions`;
         try {
-            const res = await fetch(`${API_BASE}/api/chat/sessions`);
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Status ${res.status}`);
             const data = await res.json();
             setSessions(data);
-        } catch (e) {
+        } catch (e: any) {
             console.error("Lỗi tải sessions:", e);
+            // Chỉ hiện alert nếu đang không phải localhost để đỡ phiền dev, hoặc hiện log
+            // Ở đây ta add log vào UI thông qua prop (nhưng ChatHistorySidebar nằm ngoài log control)
+            // Tạm thời alert 1 lần nếu cần thiết
+            console.log(`Failed to fetch sessions from ${url}: ${e.message}`);
         }
     }, []);
 
     const handleNewChat = useCallback(async () => {
         const title = window.prompt("Tên cuộc trò chuyện mới:", `Chat ${new Date().toLocaleTimeString()}`);
         if (!title) return;
+        const url = `${getApiBase()}/api/chat/session/create`;
         try {
-            const res = await fetch(`${API_BASE}/api/chat/session/create`, {
+            const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ title }),
             });
+            if (!res.ok) throw new Error(`Status ${res.status}`);
             const data = await res.json();
             await fetchSessions();
             setSelectedSessionId(data.id);
-        } catch (e) {
-            window.alert("Không thể tạo session");
+        } catch (e: any) {
+            window.alert(`Lỗi tạo session (${url}): ${e.message}. Kiểm tra xem Backend có đang chạy và Firewall có mở port 8080 không.`);
         }
     }, [fetchSessions]);
 
@@ -65,7 +90,7 @@ export default function Home() {
         if (!window.confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?")) return;
 
         try {
-            const res = await fetch(`${API_BASE}/api/chat/session/${id}`, {
+            const res = await fetch(`${getApiBase()}/api/chat/session/${id}`, {
                 method: "DELETE",
             });
 
@@ -88,7 +113,7 @@ export default function Home() {
 
         const loadHistory = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/chat/session/${selectedSessionId}`);
+                const res = await fetch(`${getApiBase()}/api/chat/session/${selectedSessionId}`);
                 const data = await res.json();
                 setChatLog(data.history || []);
             } catch (e) {
@@ -98,7 +123,8 @@ export default function Home() {
         loadHistory();
 
         if (ws.current) ws.current.close();
-        const wsUrl = `ws://localhost:8080/ws/chat/${selectedSessionId}`;
+        // Tự động dùng IP tương ứng với Frontend
+        const wsUrl = `${getWsBase()}/ws/chat/${selectedSessionId}`;
         ws.current = new WebSocket(wsUrl);
 
         ws.current.onopen = () => setStatus("Connected");
@@ -198,9 +224,9 @@ export default function Home() {
                 ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
             `}>
                 <div className="h-full relative">
-                    {/* Mobile Close Button */}
+                    {/* Mobile Close Button (Left Side) */}
                     <button
-                        className="lg:hidden absolute top-4 right-4 z-50 text-xl font-bold opacity-60"
+                        className="lg:hidden absolute top-5 left-4 z-50 text-xl font-bold opacity-60 hover:opacity-100"
                         onClick={() => setIsMobileMenuOpen(false)}
                     >
                         ✕
@@ -226,12 +252,16 @@ export default function Home() {
             {/* MAIN CONTENT WRAPPER */}
             <div className="flex-1 flex flex-col lg:flex-row relative min-w-0">
 
-                {/* THEME TOGGLE BUTTON (Floating Top Right) */}
-                {/* Dời sang trái 1 xíu trên mobile để ko bị vướng mép */}
+                {/* THEME TOGGLE BUTTON (Floating) */}
+                {/* Mobile: Bên trái (cạnh nút Menu). Desktop: Góc phải. */}
+                {/* Ẩn trên mobile khi menu đang mở để tránh đè lên sidebar */}
                 <button
                     onClick={toggleTheme}
-                    className={`absolute top-4 right-4 z-50 p-2 rounded-full shadow-md transition-all duration-300 ${isDarkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-white text-orange-500 hover:bg-gray-100'
-                        }`}
+                    className={`absolute top-4 z-50 p-2 rounded-full shadow-md transition-all duration-300 
+                        left-14 lg:left-auto lg:right-4
+                        ${isMobileMenuOpen ? 'hidden lg:block' : ''}
+                        ${isDarkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-white text-orange-500 hover:bg-gray-100'}
+                    `}
                     title="Toggle Dark Mode"
                 >
                     {isDarkMode ? '🌙' : '☀️'}
@@ -240,11 +270,7 @@ export default function Home() {
                 {/* 2. MODEL AREA */}
                 {/* Mobile: Chiếm 60% chiều cao. Desktop: Chiếm phần còn lại (flex-1) */}
                 <div className={`relative h-[55%] lg:h-full lg:flex-1 overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
-                    {/* Status Badge: Dời xuống dưới nút Menu hamburger một chút trên Mobile */}
-                    <div className={`absolute top-4 left-16 lg:left-4 z-10 px-3 py-1 rounded-full text-xs font-bold shadow-sm border transition-colors duration-300 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white/80 border-gray-200 text-slate-800'
-                        }`}>
-                        {status}
-                    </div>
+
 
                     {/* Vùng chứa Model */}
                     <div className="w-full h-full">

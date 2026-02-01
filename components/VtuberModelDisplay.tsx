@@ -431,6 +431,8 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
         }
     }, [isPlaying, isIdleEnabled, internalStatus]); // Chạy lại khi trạng thái thay đổi hoặc model load xong
 
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
     return (
         <div className="w-full h-full relative overflow-hidden bg-transparent">
             {/* Background decoration */}
@@ -438,14 +440,10 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
             <div ref={containerRef} className="w-full h-full" />
 
-            {/* Status Overlay */}
-            <div className="absolute top-3 left-3 flex flex-col gap-1 pointer-events-none">
-                <div className="bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-[10px] flex items-center gap-2 border border-white/10">
-                    <div className={`w-2 h-2 rounded-full ${status === 'Connected' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    <span>{status}</span>
-                </div>
+            {/* Status Overlay (SPEAKING Indicator ONLY) */}
+            <div className="absolute top-3 left-3 pointer-events-none z-20">
                 {isPlaying && (
-                    <div className="bg-green-500/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-[10px] font-bold animate-bounce border border-green-400/30">
+                    <div className="bg-green-500/80 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-[10px] font-bold animate-bounce border border-green-400/30 shadow-lg">
                         🔊 SPEAKING...
                     </div>
                 )}
@@ -457,44 +455,74 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 </div>
             )}
 
-            {/* Test Controls */}
-            <div className="absolute top-3 right-3 flex gap-2">
+            {/* SETTINGS MENU (Top Right) */}
+            <div className="absolute top-3 right-3 z-30 flex flex-col items-end gap-2">
+                {/* Toggle Button */}
                 <button
-                    onClick={toggleModel}
-                    className="px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border bg-black/30 border-white/10 text-white/90 hover:bg-black/50 hover:text-white transition-all font-bold shadow-sm"
+                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                    className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/60 transition-all shadow-sm"
                 >
-                    🔄 {MODELS[modelIndex].name}
+                    {isSettingsOpen ? '✕' : '⚙️'}
                 </button>
-                <button
-                    onClick={toggleIdle}
-                    className={`px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border transition-all font-bold shadow-sm ${isIdleEnabled
-                        ? 'bg-green-500/50 border-green-400 text-white animate-pulse'
-                        : 'bg-black/30 border-white/10 text-white/70 hover:bg-black/50'
-                        }`}
-                >
-                    {isIdleEnabled ? '🤸 Idle: ON' : '🧍 Idle: OFF'}
-                </button>
-                <button
-                    onClick={toggleTestSpeaking}
-                    className={`px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border transition-all ${debugSpeaking
-                        ? 'bg-red-500/50 border-red-400 text-white animate-pulse'
-                        : 'bg-black/30 border-white/10 text-white/70 hover:bg-black/50 hover:text-white'
-                        }`}
-                >
-                    {debugSpeaking ? 'Stop Test' : 'Test Speak'}
-                </button>
-                <button
-                    onClick={() => setShowDebug(!showDebug)}
-                    className="bg-black/30 hover:bg-black/50 text-white/70 hover:text-white px-3 py-1 text-[10px] rounded-full backdrop-blur-sm border border-white/10 transition-all"
-                >
-                    {showDebug ? 'Hide Logs' : 'Show Logs'}
-                </button>
+
+                {/* Dropdown Menu */}
+                {isSettingsOpen && (
+                    <div className="flex flex-col gap-2 bg-black/80 backdrop-blur-xl p-2 rounded-xl border border-white/10 shadow-xl min-w-[150px] animate-in fade-in slide-in-from-top-2 duration-200">
+
+                        {/* Status Item (Moved here) */}
+                        <div className="bg-white/5 rounded-lg px-3 py-2 flex items-center gap-2 mb-1 border border-white/5">
+                            <div className={`w-2 h-2 rounded-full shadow-lg ${status === 'Connected' ? 'bg-green-400 shadow-green-400/50' : 'bg-red-400'}`} />
+                            <span className="text-[10px] text-white/90 font-medium">{status}</span>
+                        </div>
+
+                        <button
+                            onClick={toggleModel}
+                            className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-3 py-2 rounded-lg text-left flex items-center gap-2 transition-all"
+                        >
+                            <span>🔄</span>
+                            <span className="truncate flex-1">{MODELS[modelIndex].name}</span>
+                        </button>
+
+                        <button
+                            onClick={toggleIdle}
+                            className={`text-[10px] px-3 py-2 rounded-lg text-left flex items-center gap-2 transition-all ${isIdleEnabled
+                                ? 'bg-green-500/30 hover:bg-green-500/40 text-green-100 border border-green-500/30'
+                                : 'bg-white/10 hover:bg-white/20 text-white'
+                                }`}
+                        >
+                            <span>{isIdleEnabled ? '🏃' : '🧍'}</span>
+                            <span className="flex-1">Idle Animation</span>
+                            <span className="opacity-60 text-[9px]">{isIdleEnabled ? 'ON' : 'OFF'}</span>
+                        </button>
+
+                        <button
+                            onClick={toggleTestSpeaking}
+                            className={`text-[10px] px-3 py-2 rounded-lg text-left flex items-center gap-2 transition-all ${debugSpeaking
+                                ? 'bg-red-500/30 hover:bg-red-500/40 text-red-100 border border-red-500/30 animate-pulse'
+                                : 'bg-white/10 hover:bg-white/20 text-white'
+                                }`}
+                        >
+                            <span>🎤</span>
+                            <span className="flex-1">Test Mic</span>
+                        </button>
+
+                        <button
+                            onClick={() => setShowDebug(!showDebug)}
+                            className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-3 py-2 rounded-lg text-left flex items-center gap-2 transition-all"
+                        >
+                            <span>🐞</span>
+                            <span className="flex-1">{showDebug ? 'Hide Logs' : 'Show Logs'}</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
+            {/* DEBUG LOG PANEL (Overlay) */}
             {showDebug && (
-                <div className="absolute top-12 right-3 w-64 max-h-40 overflow-y-auto bg-black/80 backdrop-blur-xl rounded-xl p-3 text-[#0f0] font-mono text-[10px] border border-white/10 shadow-2xl">
+                <div className="absolute top-14 left-3 right-16 max-h-[150px] overflow-y-auto bg-black/80 backdrop-blur-xl rounded-xl p-3 text-[#0f0] font-mono text-[9px] border border-white/10 shadow-2xl z-20 pointer-events-auto">
+                    {debugInfo.length === 0 && <div className="opacity-50 italic">No logs yet...</div>}
                     {debugInfo.map((l, i) => (
-                        <div key={i} className="mb-1 opacity-80 hover:opacity-100">{l}</div>
+                        <div key={i} className="mb-0.5 break-words opacity-90 border-b border-white/5 pb-0.5 last:border-0">{l}</div>
                     ))}
                 </div>
             )}

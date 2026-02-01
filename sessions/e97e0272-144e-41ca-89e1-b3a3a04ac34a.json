@@ -162,6 +162,30 @@
     {
       "role": "assistant",
       "content": "Okay, here’s a joke for you! 🤣\n\nWhy did the scarecrow win an award? \n… Because he was outstanding in his field! 😂"
+    },
+    {
+      "role": "user",
+      "content": "hello"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori says hello back to you, sweetvn! 👋😊"
+    },
+    {
+      "role": "user",
+      "content": "what is the model are u using?"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori is using the Gemma model! It’s a really cool one! 😊"
+    },
+    {
+      "role": "user",
+      "content": "that good one!"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori is so glad you think so! 😄 It’s pretty good, right? 🥰"
     }
   ]
 }

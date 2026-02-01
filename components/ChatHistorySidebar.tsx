@@ -37,7 +37,7 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
     return (
         <div className={`flex flex-col h-full ${baseText}`}>
             {/* Header */}
-            <div className={`p-4 border-b flex justify-between items-center ${border} ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className={`p-4 pl-12 lg:pl-4 border-b flex justify-between items-center ${border} ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
                 <h3 className="font-bold text-sm uppercase tracking-wider opacity-80">History</h3>
                 <button
                     className={`p-2 rounded-full transition-colors flex items-center justify-center ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}
@@ -60,8 +60,8 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
                         <div
                             key={chat.id}
                             className={`group relative p-3 rounded-xl border transition-all cursor-pointer ${selectedSessionId === chat.id
-                                    ? `${activeBg} shadow-sm`
-                                    : `border-transparent ${hoverBg}`
+                                ? `${activeBg} shadow-sm`
+                                : `border-transparent ${hoverBg}`
                                 }`}
                             onClick={() => onSelectChat && onSelectChat(chat)}
                         >
