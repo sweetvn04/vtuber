@@ -208,7 +208,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
             {/* Messages */}
             <div className="grow overflow-y-auto p-4 space-y-4 bg-transparent">
-                <div className="flex flex-col gap-1 max-w-[85%]">
+                <div className="flex flex-col gap-1 max-w-[85%] w-fit mr-auto">
                     <span className={`text-[10px] font-bold ml-2 uppercase opacity-50 ${subText}`}>Hiyori</span>
                     <div className={`p-3 rounded-2xl rounded-tl-none shadow-sm border text-sm leading-relaxed ${assistantBg} ${isDarkMode ? 'text-gray-200' : 'text-gray-700'}`}>
                         <p>Chào bạn! Mình có thể giúp gì cho bạn hôm nay? ฅ^•ﻌ•^ฅ</p>
@@ -216,8 +216,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
 
                 {chatLog.map((msg, index) => (
-                    <div key={index} className={`flex flex-col gap-1 max-w-[85%] ${msg.role === 'assistant' ? 'self-start' : 'self-end'}`}>
-                        <span className={`text-[10px] font-bold px-2 opacity-50 uppercase ${subText} ${msg.role === 'assistant' ? 'text-left' : 'text-right'}`}>
+                    <div key={index} className={`flex flex-col gap-1 max-w-[85%] w-fit ${msg.role === 'assistant' ? 'mr-auto items-start' : 'ml-auto items-end'}`}>
+                        <span className={`text-[10px] font-bold px-2 opacity-50 uppercase ${subText}`}>
                             {msg.role === 'assistant' ? 'Assistant' : 'You'}
                         </span>
                         <div className={`p-3 rounded-2xl shadow-sm text-sm leading-relaxed border ${msg.role === 'assistant'
@@ -230,7 +230,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 ))}
 
                 {isThinking && (
-                    <div className={`flex gap-2 p-3 rounded-full animate-pulse border max-w-[80px] justify-center ${assistantBg}`}>
+                    <div className={`flex gap-2 p-3 rounded-full animate-pulse border max-w-[80px] w-fit mr-auto justify-center ${assistantBg}`}>
                         <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40 animate-bounce" />
                         <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 animate-bounce delay-150" />
                         <div className="w-1.5 h-1.5 rounded-full bg-current opacity-80 animate-bounce delay-300" />

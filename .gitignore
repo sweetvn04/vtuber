@@ -31,7 +31,7 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
-.env*
+.env*ng 
 
 # vercel
 .vercel
@@ -44,3 +44,11 @@ next-env.d.ts
 *.cmo3
 *.can3
 *.zip
+
+#voice models
+*.pth
+*.onnx
+*.wav
+backend/tts_model/
+backend/rvc_models/
+.venv/

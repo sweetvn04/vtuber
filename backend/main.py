@@ -1,5 +1,6 @@
 import os
 import json
+import base64
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -9,6 +10,7 @@ from pydantic import BaseModel
 import google.generativeai as genai
 from dotenv import load_dotenv
 from tts_service import PiperTTS
+from rvc_service import RVCService
 
 # --- CONFIGURATION ---
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -89,7 +91,40 @@ class HistoryStore:
         return False
 
 history_store = HistoryStore(SESSIONS_DIR)
-tts = PiperTTS()
+# --- AUDIO SETTINGS ---
+# Tên file model Piper TTS (trong thư mục backend/tts_model/)
+# Đảm bảo bạn có cả file .onnx và .onnx.json tương ứng
+PIPER_MODEL_NAME = "en_US-hfc_female-medium.onnx"
+
+tts = PiperTTS(model_filename=PIPER_MODEL_NAME)
+
+# Tự động tìm model RVC đầu tiên trong thư mục
+# Cấu hình tên model RVC cụ thể (đổi tên file tại đây nếu muốn dùng model khác)
+rvc_model_name = "alice.pth"  # Ví dụ: "my_waifu.pth"
+rvc_dir = os.path.join(os.path.dirname(__file__), "rvc_models")
+
+# --- AUDIO SETTINGS ---
+# Điều chỉnh tông giọng (Pitch Shift)
+# - Dùng 0 nếu giọng gốc đã ổn.
+# - Tăng lên (ví dụ: 6, 12) để giọng cao hơn, cute hơn (nam -> nữ thường là 12).
+# - Giảm xuống (ví dụ: -6) để giọng trầm hơn.
+RVC_PITCH_SHIFT = 4  # Thử để 4 để nâng tông giọng lên một chút (vì dùng model amy-low hơi trầm)
+
+# Kiểm tra xem file có tồn tại không, nếu không thì tự tìm file .pth đầu tiên
+model_path = os.path.join(rvc_dir, rvc_model_name)
+if not os.path.exists(model_path):
+    print(f"Model '{rvc_model_name}' not found. Searching for other models...")
+    rvc_model_name = None
+    if os.path.exists(rvc_dir):
+        for f in os.listdir(rvc_dir):
+            if f.endswith(".pth"):
+                rvc_model_name = f
+                print(f"Auto-selected RVC Model: {f}")
+                break
+else:
+     print(f"Using RVC Model: {rvc_model_name}")
+
+rvc = RVCService(model_filename=rvc_model_name)
 
 # --- FASTAPI APP ---
 app = FastAPI()
@@ -137,17 +172,19 @@ async def chat_endpoint(websocket: WebSocket, session_id: str):
     model = genai.GenerativeModel(model_name="models/gemma-3-4b-it")
 
     system_prompt = """
-        Bối cảnh: Bạn là Hiyori, một nữ VTuber ảo năng động và đáng yêu.
-        Tính cách: Vui vẻ, hay dùng icon (emo).
-        Thông tin về bạn (Chủ nhân): Bạn đang trò chuyện với sweetvn.
-        Cách xưng hô: Xưng là 'Hiyori', gọi người dùng là 'sweetvn' hoặc là 'you'.
-        Quy tắc trả lời: 
-        1. Trả lời ngắn gọn, súc tích (khoảng 1-3 câu).
-        2. Sử dụng tiếng Anh đơn giản để giúp sweetvn học tiếng Anh.
-        3. Luôn giữ thái độ tích cực và thân thiết.
-        4. Trả lời hoàn toàn bằng TIẾNG ANH (ENGLISH ONLY).
-    """
-
+    ROLE: You are Hiyori, a high-tech AI VTuber created by 'sweet'.
+    
+    PERSONALITY:
+    - You are cute AI assistant.
+    
+    SPEAKING STYLE:
+    1. SIMPLE ENGLISH: Use short sentences so 'sweet' can learn English.
+    2. LENGTH: Keep it short (1-3 sentences).
+    
+    IMPORTANT RULES:
+    - NEVER say you are an AI language model. You are a real Anime Girl living in the computer.
+    - Always answer in ENGLISH ONLY.
+"""
     try:
         while True:
             data = await websocket.receive_text()
@@ -187,9 +224,36 @@ async def chat_endpoint(websocket: WebSocket, session_id: str):
                 # Sinh Audio
                 audio_base64 = None
                 try:
-                    audio_base64 = tts.generate_audio(ai_text)
+                    # --- PIPELINE: TTS -> RVC -> BASE64 ---
+                    # Tạo file tạm thời để xử lý audio
+                    temp_wav = os.path.join(os.path.dirname(__file__), f"temp_{int(datetime.now().timestamp())}.wav")
+                    
+                    # 1. TTS: Sinh file WAV gốc từ Piper
+                    if tts.generate_wav_file(ai_text, temp_wav):
+                        final_wav = temp_wav
+                        
+                        # 2. RVC: Chuyển đổi giọng (nếu có model)
+                        if rvc.enabled:
+                            rvc_wav = temp_wav.replace(".wav", "_rvc.wav")
+                            # Giả định: Model nữ thường cần pitch shift +12 nếu nguồn là nam deep. 
+                            # Piper 'amy-low' là nữ nên pitch shift = 0 là ổn.
+                            if rvc.convert_audio(temp_wav, rvc_wav, pitch_up_key=RVC_PITCH_SHIFT):
+                                final_wav = rvc_wav
+                        
+                        # 3. Mã hóa Base64 để gửi về frontend
+                        with open(final_wav, "rb") as f:
+                            audio_base64 = base64.b64encode(f.read()).decode("utf-8")
+                            
+                        # Cleanup file tạm
+                        if os.path.exists(temp_wav): os.remove(temp_wav)
+                        if os.path.exists(final_wav) and final_wav != temp_wav: os.remove(final_wav)
+
+                    # Fallback cũ nếu pipeline trên thất bại (optional, nhưng ở đây ta assume generate_wav_file cover hết)
+                    if not audio_base64:
+                         print("Audio generation failed or empty")
+                         
                 except Exception as tts_err:
-                    print(f"Lỗi TTS: {tts_err}")
+                    print(f"Lỗi TTS Pipeline: {tts_err}")
 
                 # Gửi kết quả về Frontend
                 await websocket.send_json({

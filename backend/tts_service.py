@@ -4,11 +4,10 @@ import os
 import re
 
 class PiperTTS:
-    def __init__(self):
+    def __init__(self, model_filename="en_US-amy-low.onnx"):
         # Đường dẫn đến file thực thi piper và model
-        # Lưu ý: Cập nhật đúng tên file model của bạn (ví dụ: en_US-amy-low.onnx)
         self.piper_path = os.path.join(os.path.dirname(__file__), "piper", "piper")
-        self.model_path = os.path.join(os.path.dirname(__file__), "tts_model", "en_US-amy-low.onnx")
+        self.model_path = os.path.join(os.path.dirname(__file__), "tts_model", model_filename)
 
     def clean_text(self, text: str) -> str:
         # Xóa các emoji và ký tự đặc biệt không muốn đọc
@@ -83,6 +82,41 @@ class PiperTTS:
         except Exception as e:
             print(f"TTS Exception: {e}")
             return None
+
+    def generate_wav_file(self, text: str, output_path: str) -> bool:
+        """
+        Sinh âm thanh từ văn bản và lưu trực tiếp vào file WAV.
+        Hữu ích cho pipeline RVC (Text -> Wav -> RVC -> Wav).
+        """
+        if not text or not text.strip(): return False
+        
+        cleaned_text = self.clean_text(text)
+        if not cleaned_text: return False
+
+        try:
+            cmd = [
+                self.piper_path,
+                "--model", self.model_path,
+                "--length_scale", "0.85",
+                "--noise_scale", "0.667",
+                "--output_file", output_path
+            ]
+            
+            # Chạy lệnh
+            subprocess.run(
+                cmd,
+                input=cleaned_text.encode("utf-8"),
+                check=True,
+                stdout=subprocess.DEVNULL, # Ẩn log không cần thiết
+                stderr=subprocess.PIPE
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"Piper File Generation Error: {e.stderr.decode('utf-8')}")
+            return False
+        except Exception as e:
+            print(f"TTS File Error: {e}")
+            return False
 
 # Test thử khi chạy trực tiếp file này
 if __name__ == "__main__":

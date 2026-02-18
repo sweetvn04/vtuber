@@ -190,7 +190,7 @@ export default function Home() {
     }, [isWebcamOn]);
 
     const [showChatOnMobile, setShowChatOnMobile] = useState(true);
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(true); // Default ON
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // State cho Mobile Menu
 
     const toggleTheme = () => setIsDarkMode(!isDarkMode);
@@ -292,9 +292,9 @@ export default function Home() {
                 {/* Ẩn trên mobile khi menu đang mở để tránh đè lên sidebar */}
                 <button
                     onClick={toggleTheme}
-                    className={`absolute top-4 z-50 p-2 rounded-full shadow-md transition-all duration-300 
-                        left-14 lg:left-auto lg:right-4
-                        ${isMobileMenuOpen ? 'hidden lg:block' : ''}
+                    className={`lg:hidden absolute top-4 z-50 p-2 rounded-full shadow-md transition-all duration-300 
+                        left-14
+                        ${isMobileMenuOpen ? 'hidden' : ''}
                         ${isDarkMode ? 'bg-gray-700 text-yellow-400 hover:bg-gray-600' : 'bg-white text-orange-500 hover:bg-gray-100'}
                     `}
                     title="Toggle Dark Mode"
@@ -303,22 +303,27 @@ export default function Home() {
                 </button>
 
                 {/* 2. MODEL AREA */}
-                {/* Mobile: Co giãn linh hoạt (flex-1). Khi bàn phím mở, nó sẽ thu nhỏ lại. */}
-                <div className={`relative flex-1 min-h-0 lg:h-full lg:flex-1 overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                {/* Mobile: Chiếm 40-50% chiều cao màn hình. Desktop: Chiếm phần còn lại (flex-1) */}
+                <div className={`relative shrink-0 h-[40vh] lg:h-full lg:flex-1 lg:shrink overflow-hidden transition-colors duration-300 ${isDarkMode ? 'bg-gray-900' : 'bg-gray-100'}`}>
                     {/* Vùng chứa Model */}
                     <div className="w-full h-full">
-                        <VtuberModelDisplay status={status} audioUrl={currentAudioUrl} />
+                        <VtuberModelDisplay
+                            status={status}
+                            audioUrl={currentAudioUrl}
+                            isDarkMode={isDarkMode}
+                            toggleTheme={toggleTheme}
+                        />
                     </div>
                 </div>
 
                 {/* 3. CHAT AREA */}
-                {/* Nếu FullScreen -> Chiếm trọn màn hình (absolute inset-0). Nếu không -> Layout cũ */}
+                {/* Mobile: Chiếm phần còn lại (flex-1). Desktop: Sidebar cố định bên phải. */}
                 <div className={`
-                    border-t lg:border-t-0 lg:border-l shadow-sm flex flex-col transition-all duration-300 
+                    flex flex-col min-h-0 transition-all duration-300 border-t lg:border-t-0 lg:border-l shadow-sm
                     ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}
                     ${isChatFullScreen
-                        ? 'fixed inset-0 w-full z-[100]'
-                        : 'z-40 h-[350px] shrink-0 lg:h-full lg:w-[400px]'
+                        ? 'absolute inset-0 w-full h-full z-[100]'
+                        : 'flex-1 lg:flex-none lg:h-full lg:w-[400px]'
                     }
                 `}>
                     <ChatInterface

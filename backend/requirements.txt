@@ -4,3 +4,4 @@ websockets
 google-generativeai
 python-dotenv
 pydantic
+rvc-python
