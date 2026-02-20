@@ -1,0 +1,16 @@
+# ignore large model directories and runtime artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+sessions/
+tts_model/
+rvc_models/
+*.pth
+*.onnx
+*.onnx.json
+
+# keep source code only
+!*.py
+!requirements.txt

@@ -12,9 +12,13 @@ import ChatHistorySidebar from "@/components/ChatHistorySidebar";
 // const API_BASE = "http://localhost:8080";
 
 // --- HELPERS ---
+// prefer explicit environment variable (NEXT_PUBLIC_API_BASE) when available
 const getApiBase = () => {
     if (typeof window !== 'undefined') {
-        // Tự động lấy Hostname hiện tại (localhost hoặc IP LAN)
+        if (process.env.NEXT_PUBLIC_API_BASE) {
+            return process.env.NEXT_PUBLIC_API_BASE;
+        }
+        // fallback to current host during local dev
         return `http://${window.location.hostname}:8080`;
     }
     return "http://localhost:8080";

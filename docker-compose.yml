@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend            # limit build context to backend folder
+      dockerfile: Dockerfile        # Dockerfile path now relative to context
+    volumes:
+      - ./backend:/app                     # live‑edit during development
+      - ./backend/tts_model:/app/tts_model # persistent models
+      - ./backend/rvc_models:/app/rvc_models
+      - ./backend/sessions:/app/sessions
+    ports:
+      - "8080:8080"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}    # read from .env or shell
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    external: true
