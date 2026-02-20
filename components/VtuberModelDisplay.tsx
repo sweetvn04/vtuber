@@ -192,6 +192,9 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
                 containerRef.current.appendChild(pixiApp.current.view as HTMLCanvasElement);
 
                 setInternalStatus('Đang tải model Live2D...');
+
+                // THÊM DÒNG NÀY ĐỂ FIX LỖI BẢO MẬT CỦA VERCEL
+                (PIXI.settings as any).CROSS_ORIGIN = 'anonymous';
                 const model = await Live2DModel.from(modelPath);
 
                 modelRef.current = model;
