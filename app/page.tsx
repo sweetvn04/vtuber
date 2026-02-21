@@ -26,7 +26,15 @@ const getApiBase = () => {
 
 const getWsBase = () => {
     if (typeof window !== 'undefined') {
-        return `ws://${window.location.hostname}:8080`;
+        const apiBase = getApiBase();
+        
+        // If the API URL has "https", the WebSocket MUST be "wss"
+        if (apiBase.startsWith("https://")) {
+            return apiBase.replace("https://", "wss://");
+        }
+        
+        // Otherwise, it's local HTTP, so use "ws"
+        return apiBase.replace("http://", "ws://");
     }
     return "ws://localhost:8080";
 };
