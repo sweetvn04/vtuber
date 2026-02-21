@@ -202,6 +202,14 @@
     {
       "role": "assistant",
       "content": "Don’t you *dare* get all sweet on me. It’s… tolerable. Let’s just… play *one* game. And don’t even *think* about losing. 😠"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "(Exasperated sigh) Okay, fine. Let’s just… stare at a picture of a fluffy kitten for a minute. It’s the most productive thing we can do right now, honestly. 🙄"
     }
   ]
 }

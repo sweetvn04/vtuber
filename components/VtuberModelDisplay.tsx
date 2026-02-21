@@ -195,7 +195,10 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
                 // THÊM DÒNG NÀY ĐỂ FIX LỖI BẢO MẬT CỦA VERCEL
                 (PIXI.settings as any).CROSS_ORIGIN = 'anonymous';
-                const model = await Live2DModel.from(modelPath);
+                const model = await Live2DModel.from(modelPath, {
+                    autoInteract: true,
+                    crossOrigin: 'anonymous' // Ép kiểu anonymous cho toàn bộ tài nguyên của model này
+                });
 
                 modelRef.current = model;
 
