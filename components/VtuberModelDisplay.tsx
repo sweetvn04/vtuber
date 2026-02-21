@@ -8,9 +8,10 @@ interface VtuberModelDisplayProps {
     audioUrl?: string | null;
     isDarkMode?: boolean;
     toggleTheme?: () => void;
+    onModelClick?: () => void;
 }
 
-const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUrl, isDarkMode, toggleTheme }) => {
+const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUrl, isDarkMode, toggleTheme, onModelClick }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const pixiApp = useRef<PIXI.Application | null>(null);
     const modelRef = useRef<any>(null);
@@ -367,7 +368,11 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
             {/* Overlay dưới model — gradient nhẹ từ dưới lên để model nổi bật */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent -z-10" />
 
-            <div ref={containerRef} className="w-full h-full" />
+            <div
+                ref={containerRef}
+                className="w-full h-full cursor-pointer"
+                onClick={onModelClick}
+            />
 
             {internalStatus && (
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-black/80 backdrop-blur-lg px-8 py-4 rounded-2xl text-white text-sm font-medium animate-pulse z-50 shadow-2xl border border-white/10">

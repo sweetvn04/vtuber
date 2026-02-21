@@ -8,7 +8,8 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import google.generativeai as genai
@@ -154,6 +155,45 @@ app.add_middleware(
 @app.get("/api/chat/sessions")
 async def list_sessions():
     return history_store.get_sessions()
+
+@app.post("/api/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    """Nhận file audio từ trình duyệt, dùng Gemini để transcribe thành text."""
+    try:
+        audio_bytes = await audio.read()
+        if not audio_bytes:
+            return JSONResponse({"text": ""}, status_code=200)
+
+        # Xác định MIME type
+        filename = audio.filename or "recording.webm"
+        if filename.endswith(".ogg"):
+            mime = "audio/ogg"
+        elif filename.endswith(".mp4"):
+            mime = "audio/mp4"
+        else:
+            mime = "audio/webm"
+
+        print(f"[Transcribe] Received {len(audio_bytes)} bytes, mime={mime}")
+
+        # Gửi lên Gemini để transcribe
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        response = model.generate_content([
+            {
+                "mime_type": mime,
+                "data": base64.b64encode(audio_bytes).decode("utf-8"),
+            },
+            "Hãy transcribe chính xác những gì được nói trong đoạn audio này. Chỉ trả về text, không thêm bất kỳ giải thích nào."
+        ])
+
+        text = response.text.strip() if response.text else ""
+        print(f"[Transcribe] Result: {repr(text)}")
+        return {"text": text}
+
+    except Exception as e:
+        print(f"[Transcribe] Error: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 
 @app.post("/api/chat/session/create")
 async def create_session(session: SessionCreate):

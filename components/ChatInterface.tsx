@@ -12,6 +12,7 @@ interface ChatInterfaceProps {
     isFullScreen?: boolean;
     onToggleFullScreen?: () => void;
     backendOnline?: boolean | null;
+    modelReaction?: string | null; // phản ứng khi click vào model
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -24,6 +25,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     isFullScreen = false,
     onToggleFullScreen,
     backendOnline = null,
+    modelReaction = null,
 }) => {
     const [input, setInput] = useState('');
     const [isRecording, setIsRecording] = useState(false);
@@ -54,41 +56,84 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         }
         isStartingRef.current = true;
         try {
+            // getUserMedia chỉ hoạt động trên localhost hoặc HTTPS
+            if (!navigator.mediaDevices?.getUserMedia) {
+                alert('🎤 Mic chỉ hoạt động trên localhost hoặc kết nối HTTPS.\n\nTruy cập qua http://localhost:3000 hoặc dùng HTTPS để dùng chức năng này.');
+                isStartingRef.current = false;
+                return;
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
+
+            // Chọn format tốt nhất trình duyệt hỗ trợ
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/webm')
+                    ? 'audio/webm'
+                    : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
+                        ? 'audio/ogg;codecs=opus'
+                        : '';
+
+            const mediaRecorder = mimeType
+                ? new MediaRecorder(stream, { mimeType })
+                : new MediaRecorder(stream);
+
+            console.log('[Mic] Using mimeType:', mediaRecorder.mimeType);
             mediaRecorderRef.current = mediaRecorder;
             audioChunksRef.current = [];
+
             mediaRecorder.ondataavailable = (e) => {
                 if (e.data.size > 0) audioChunksRef.current.push(e.data);
             };
+
             mediaRecorder.onstop = async () => {
                 stream.getTracks().forEach(t => t.stop());
-                const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                const totalSize = audioChunksRef.current.reduce((s, b) => s + b.size, 0);
+                console.log('[Mic] Recorded chunks:', audioChunksRef.current.length, 'Total bytes:', totalSize);
+
+                if (totalSize === 0) {
+                    console.warn('[Mic] No audio data captured!');
+                    return;
+                }
+
+                const ext = mediaRecorder.mimeType.includes('ogg') ? 'ogg' : 'webm';
+                const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
                 const formData = new FormData();
-                formData.append('audio', blob, 'recording.webm');
+                formData.append('audio', blob, `recording.${ext}`);
+
                 try {
                     const apiBase = process.env.NEXT_PUBLIC_API_BASE
                         || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8080` : 'http://localhost:8080');
+                    console.log('[Mic] Sending to:', `${apiBase}/api/transcribe`);
                     const res = await fetch(`${apiBase}/api/transcribe`, { method: 'POST', body: formData });
+                    console.log('[Mic] Transcribe status:', res.status);
                     if (res.ok) {
                         const data = await res.json();
+                        console.log('[Mic] Transcribed text:', data.text);
                         if (data.text?.trim()) {
                             setInput(data.text.trim());
+                        } else {
+                            console.warn('[Mic] Empty transcription result');
                         }
+                    } else {
+                        const errText = await res.text();
+                        console.error('[Mic] Transcribe error response:', res.status, errText);
                     }
                 } catch (err) {
-                    console.error('Transcribe error:', err);
+                    console.error('[Mic] Fetch error:', err);
                 }
             };
-            mediaRecorder.start();
+
+            // timeslice 100ms → ondataavailable được gọi liên tục, không mất data
+            mediaRecorder.start(100);
             isRecordingRef.current = true;
             setIsRecording(true);
         } catch (err) {
-            console.error('Mic error:', err);
+            console.error('[Mic] Start error:', err);
         } finally {
             isStartingRef.current = false;
         }
     };
+
 
     // Hold M to record
     useEffect(() => {
@@ -203,6 +248,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         </div>
                     </div>
                 ))}
+
 
                 {/* ── SEARCHING INDICATOR ── */}
                 {isSearching && (

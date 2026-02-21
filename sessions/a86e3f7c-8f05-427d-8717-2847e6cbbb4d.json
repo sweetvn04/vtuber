@@ -1,0 +1,35 @@
+{
+  "id": "a86e3f7c-8f05-427d-8717-2847e6cbbb4d",
+  "title": "Chat 12:42:19 AM",
+  "created_at": "2026-02-22T00:42:21.475828",
+  "history": [
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi! It’s nice to meet you! What do you want to do today? 😊"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "user",
+      "content": "ncie to meet you"
+    },
+    {
+      "role": "assistant",
+      "content": "Hincie to meet you too! That’s a funny word! Do you want to play a game? ✨"
+    },
+    {
+      "role": "user",
+      "content": "haha right"
+    },
+    {
+      "role": "assistant",
+      "content": "Yay! Let’s play! How about we pick a color? 🌈"
+    }
+  ]
+}

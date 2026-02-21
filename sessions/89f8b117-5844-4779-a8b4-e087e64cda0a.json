@@ -146,6 +146,34 @@
     {
       "role": "assistant",
       "content": "Hiyori is looking up Minecraft! Okay, sweet! To make a crafting table, you need wood! You have to chop down a tree with an axe! Then, you turn the wood into planks! \n\nAfter that, you combine four planks of wood together in your inventory – click and drag them! It makes a crafting table! It’s really easy! 😊"
+    },
+    {
+      "role": "user",
+      "content": "what is the latest version minecraft now?"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori is checking! The latest version of Minecraft is 1.21.5! It’s a Spring to Life drop! It brings new plants and mobs! Isn’t that exciting? 😊"
+    },
+    {
+      "role": "user",
+      "content": "what is the latest version minecraft 2026"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori found it! The latest version of Minecraft for 2026 is 26.0! It’s called 1.26.0! It has new things like command macros and changes for the baby mobs! Isn’t that cool? 😊"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hiyori says hi back, sweet! Hi hí! 😊 How are you today?"
+    },
+    {
+      "role": "user",
+      "content": "can u talk?"
     }
   ]
 }

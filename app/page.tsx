@@ -107,6 +107,24 @@ export default function Home() {
 
     const toggleTheme = () => setIsDarkMode(p => !p);
 
+    // --- MODEL CLICK REACTION ---
+    const [modelReaction, setModelReaction] = useState<string | null>(null);
+    const MODEL_REACTIONS = [
+        'Kyaa~!! (*≧•≦*)',
+        'Hế hế~ có gì thế bạn? (´•ω•`)',
+        'Click vào đâu đó :)?? ♥',
+        'Định làm gì mình đó ( ﾟvﾟ)',
+        '*blush* Sao lại nhìn mình thế... 💕',
+        'Ehe~ có cần gì Hiyori không? ✨',
+        'Wah! 😱 Bạn làm mình giật mình!',
+        'Mou~ đừng có phá mình (ノ￣Д￣)ノ...',
+    ];
+    const handleModelClick = () => {
+        const text = MODEL_REACTIONS[Math.floor(Math.random() * MODEL_REACTIONS.length)];
+        setModelReaction(text);
+        setTimeout(() => setModelReaction(null), 5000);
+    };
+
     // --- RESIZE HANDLERS ---
     const onSidebarResizeStart = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
@@ -416,8 +434,29 @@ export default function Home() {
                             audioUrl={currentAudioUrl}
                             isDarkMode={isDarkMode}
                             toggleTheme={toggleTheme}
+                            onModelClick={handleModelClick}
                         />
                     </div>
+
+                    {/* ── SPEECH BUBBLE POPUP khi click model ── */}
+                    {modelReaction && (
+                        <div className="absolute bottom-[62%] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                            <div
+                                style={{ animation: 'bubbleIn 0.25s ease-out' }}
+                                className="relative px-4 py-3 rounded-2xl text-sm font-medium text-white
+                                    bg-black/60 backdrop-blur-xl border border-white/20 shadow-2xl
+                                    max-w-[220px] text-center leading-snug whitespace-pre-wrap"
+                            >
+                                {modelReaction}
+                                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2
+                                    border-l-8 border-r-8 border-t-8
+                                    border-l-transparent border-r-transparent border-t-white/20" />
+                                <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2
+                                    border-l-[7px] border-r-[7px] border-t-[7px]
+                                    border-l-transparent border-r-transparent border-t-black/60" />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Chat Resize Handle */}
@@ -458,6 +497,7 @@ export default function Home() {
                         isFullScreen={isChatFullScreen}
                         onToggleFullScreen={() => setIsChatFullScreen(prev => !prev)}
                         backendOnline={backendOnline}
+                        modelReaction={modelReaction}
                     />
                 </div>
 
