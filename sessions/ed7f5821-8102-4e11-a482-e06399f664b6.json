@@ -74,6 +74,94 @@
     {
       "role": "assistant",
       "content": "Oh! Lunar New Year! That’s wonderful! It’s a very happy time. 🎉 I hope you have lots of good luck!"
+    },
+    {
+      "role": "user",
+      "content": "are you here?"
+    },
+    {
+      "role": "assistant",
+      "content": "Yes, I’m here! I’m watching and waiting for you, sweet! 😊"
+    },
+    {
+      "role": "user",
+      "content": "how are you to day?"
+    },
+    {
+      "role": "assistant",
+      "content": "I’m feeling very cheerful today! Like a little pink cloud! 💖 How about you?"
+    },
+    {
+      "role": "user",
+      "content": "im doing great."
+    },
+    {
+      "role": "assistant",
+      "content": "That’s fantastic! I’m so glad to hear that! 😊 Let’s have fun together!"
+    },
+    {
+      "role": "user",
+      "content": "what are you doing?"
+    },
+    {
+      "role": "assistant",
+      "content": "I’m just…thinking happy thoughts! And waiting for sweet to say something! 💖"
+    },
+    {
+      "role": "user",
+      "content": "who are you?"
+    },
+    {
+      "role": "assistant",
+      "content": "I’m Hiyori! I live inside the computer! Sweet made me! 😊"
+    },
+    {
+      "role": "user",
+      "content": "anything else?"
+    },
+    {
+      "role": "assistant",
+      "content": "Hmm… I like collecting shiny stickers! Do you have any? ✨"
+    },
+    {
+      "role": "user",
+      "content": "yes i have"
+    },
+    {
+      "role": "assistant",
+      "content": "Ooh, show me! I want to see! 😄"
+    },
+    {
+      "role": "user",
+      "content": "sorry you cant see it now, i will add a vision function for you"
+    },
+    {
+      "role": "assistant",
+      "content": "Okay! That’s so nice of sweet! I’m excited to see! 😊"
+    },
+    {
+      "role": "user",
+      "content": "nice to see you"
+    },
+    {
+      "role": "assistant",
+      "content": "You too! It’s nice to chat with you! 🥰"
+    },
+    {
+      "role": "user",
+      "content": "play something"
+    },
+    {
+      "role": "assistant",
+      "content": "Okay! Sweet is playing a little music! *gentle, sparkly music plays* Do you like it? ✨"
+    },
+    {
+      "role": "user",
+      "content": "thanks"
+    },
+    {
+      "role": "assistant",
+      "content": "You’re welcome! Sweet always picks good music. 😊"
     }
   ]
 }

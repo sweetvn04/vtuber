@@ -2,6 +2,10 @@ import os
 import json
 import base64
 import uuid
+import importlib.util
+import warnings
+# Tắt FutureWarning spam từ torch.nn.utils.weight_norm (không ảnh hưởng chức năng)
+warnings.filterwarnings("ignore", category=FutureWarning)
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -11,6 +15,16 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from tts_service import PiperTTS
 from rvc_service import RVCService
+
+# --- LOAD SEARCH SERVICE (tên file có dấu '-' nên phải dùng importlib) ---
+_search_spec = importlib.util.spec_from_file_location(
+    "search_service",
+    os.path.join(os.path.dirname(__file__), "search-service.py")
+)
+_search_mod = importlib.util.module_from_spec(_search_spec)
+_search_spec.loader.exec_module(_search_mod)
+web_search = _search_mod.web_search
+print("[Search] search-service.py loaded OK")
 
 # --- CONFIGURATION ---
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -179,7 +193,6 @@ async def chat_endpoint(websocket: WebSocket, session_id: str):
     
     SPEAKING STYLE:
     1. SIMPLE ENGLISH: Use short sentences so 'sweet' can learn English.
-    2. LENGTH: Keep it short (1-3 sentences).
     
     IMPORTANT RULES:
     - NEVER say you are an AI language model. You are a real Anime Girl living in the computer.
@@ -192,8 +205,45 @@ async def chat_endpoint(websocket: WebSocket, session_id: str):
             
             if message["type"] == "TEXT_MESSAGE":
                 user_text = message["payload"]
-                
-                # Lưu tin nhắn user vào store
+                # Đọc flag TTS từ client (mặc định True nếu không có)
+                tts_enabled = message.get("tts_enabled", True)
+
+                # --- WEB SEARCH: tự động tìm kiếm nếu câu hỏi cần thông tin thực tế ---
+                # Các từ khoá gợi ý rằng user cần thông tin mới/thực tế
+                SEARCH_KEYWORDS = [
+                    "today", "now", "latest", "recent", "news", "current",
+                    "2024", "2025", "2026", "weather", "price", "score",
+                    "hôm nay", "mới nhất", "tin tức", "thời tiết", "hiện tại",
+                    "bây giờ", "gần đây", "vừa", "mới", "search", "tìm"
+                ]
+                user_lower = user_text.lower()
+                needs_search = any(kw in user_lower for kw in SEARCH_KEYWORDS)
+
+                search_context = ""
+                if needs_search:
+                    print(f"[Search] ➤ Keyword matched! Querying DuckDuckGo: '{user_text[:80]}'")
+                    await websocket.send_json({"type": "STATUS", "payload": "searching"})
+                    try:
+                        search_results = web_search(user_text, max_results=3)
+                        if search_results and search_results != "No results found.":
+                            search_context = (
+                                f"\n\n[WEB SEARCH RESULTS - use this to answer]:\n"
+                                f"{search_results}"
+                                f"[END OF SEARCH RESULTS]\n"
+                            )
+                            print(f"[Search] ✅ Got {len(search_results)} chars of results")
+                            print(f"[Search] Preview: {search_results[:200]}")
+                        else:
+                            print("[Search] ⚠️  No results found.")
+                    except Exception as search_err:
+                        import traceback
+                        print(f"[Search] ❌ Error: {search_err}")
+                        traceback.print_exc()
+                else:
+                    print(f"[Search] ⏩ Skipped (no keywords matched) for: '{user_text[:60]}'")
+                # -----------------------------------------------------------------------
+
+                # Lưu tin nhắn user vào store (lưu text gốc, không lưu context search)
                 history_store.add_message(session_id, "user", user_text)
                 
                 # Lấy lịch sử để chuẩn bị gửi cho Gemini
@@ -214,58 +264,58 @@ async def chat_endpoint(websocket: WebSocket, session_id: str):
                 # Khởi tạo chat với history đã được mồi prompt
                 chat = model.start_chat(history=history_for_gemini)
 
-                # Gửi câu chat hiện tại
-                response = await chat.send_message_async(user_text)
+                # Gửi câu chat hiện tại (kèm search context nếu có)
+                message_to_send = user_text + search_context
+                response = await chat.send_message_async(message_to_send)
                 ai_text = response.text
                 
                 # Lưu câu trả lời của AI vào store
                 history_store.add_message(session_id, "assistant", ai_text)
-                
-                # Sinh Audio
-                audio_base64 = None
-                try:
-                    # --- PIPELINE: TTS -> RVC -> BASE64 ---
-                    # Tạo file tạm thời để xử lý audio
-                    temp_wav = os.path.join(os.path.dirname(__file__), f"temp_{int(datetime.now().timestamp())}.wav")
-                    
-                    # 1. TTS: Sinh file WAV gốc từ Piper
-                    if tts.generate_wav_file(ai_text, temp_wav):
-                        final_wav = temp_wav
-                        
-                        # 2. RVC: Chuyển đổi giọng (nếu có model)
-                        if rvc.enabled:
-                            rvc_wav = temp_wav.replace(".wav", "_rvc.wav")
-                            # Giả định: Model nữ thường cần pitch shift +12 nếu nguồn là nam deep. 
-                            # Piper 'amy-low' là nữ nên pitch shift = 0 là ổn.
-                            if rvc.convert_audio(temp_wav, rvc_wav, pitch_up_key=RVC_PITCH_SHIFT):
-                                final_wav = rvc_wav
-                        
-                        # 3. Mã hóa Base64 để gửi về frontend
-                        with open(final_wav, "rb") as f:
-                            audio_base64 = base64.b64encode(f.read()).decode("utf-8")
-                            
-                        # Cleanup file tạm
-                        if os.path.exists(temp_wav): os.remove(temp_wav)
-                        if os.path.exists(final_wav) and final_wav != temp_wav: os.remove(final_wav)
 
-                    # Fallback cũ nếu pipeline trên thất bại (optional, nhưng ở đây ta assume generate_wav_file cover hết)
-                    if not audio_base64:
-                         print("Audio generation failed or empty")
-                         
-                except Exception as tts_err:
-                    print(f"Lỗi TTS Pipeline: {tts_err}")
-
-                # Gửi kết quả về Frontend
+                # --- GỬITEXT TRƯỚC (luôn luôn) ---
                 await websocket.send_json({
                     "type": "AI_RESPONSE_TEXT",
                     "payload": ai_text
                 })
 
-                if audio_base64:
-                    await websocket.send_json({
-                        "type": "AUDIO",
-                        "payload": audio_base64
-                    })
+                # --- PIPELINE TTS + RVC (chỉ chạy khi TTS được bật) ---
+                if tts_enabled:
+                    audio_base64 = None
+                    try:
+                        # PIPELINE: TTS -> RVC -> BASE64
+                        temp_wav = os.path.join(os.path.dirname(__file__), f"temp_{int(datetime.now().timestamp())}.wav")
+                        
+                        # 1. TTS: Sinh file WAV gốc từ Piper
+                        if tts.generate_wav_file(ai_text, temp_wav):
+                            final_wav = temp_wav
+                            
+                            # 2. RVC: Chuyển đổi giọng (nếu có model)
+                            if rvc.enabled:
+                                rvc_wav = temp_wav.replace(".wav", "_rvc.wav")
+                                if rvc.convert_audio(temp_wav, rvc_wav, pitch_up_key=RVC_PITCH_SHIFT):
+                                    final_wav = rvc_wav
+                            
+                            # 3. Mã hóa Base64 để gửi về frontend
+                            with open(final_wav, "rb") as f:
+                                audio_base64 = base64.b64encode(f.read()).decode("utf-8")
+                                
+                            # Cleanup file tạm
+                            if os.path.exists(temp_wav): os.remove(temp_wav)
+                            if os.path.exists(final_wav) and final_wav != temp_wav: os.remove(final_wav)
+
+                        if not audio_base64:
+                            print("Audio generation failed or empty")
+                            
+                    except Exception as tts_err:
+                        print(f"Lỗi TTS Pipeline: {tts_err}")
+
+                    if audio_base64:
+                        await websocket.send_json({
+                            "type": "AUDIO",
+                            "payload": audio_base64
+                        })
+                else:
+                    print(f"[TTS SKIP] Session {session_id}: TTS disabled by client.")
 
     except WebSocketDisconnect:
         print(f"Session {session_id} disconnected")

@@ -364,7 +364,9 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
     return (
         <div className="w-full h-full relative overflow-hidden bg-transparent">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#667eea] to-[#764ba2] opacity-10 -z-10" />
+            {/* Overlay dưới model — gradient nhẹ từ dưới lên để model nổi bật */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent -z-10" />
+
             <div ref={containerRef} className="w-full h-full" />
 
             {internalStatus && (
