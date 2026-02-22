@@ -31,8 +31,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const [isRecording, setIsRecording] = useState(false);
     const isRecordingRef = useRef(false);
     const isStartingRef = useRef(false);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
+    const recognitionRef = useRef<any>(null);
     const messageEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -46,90 +45,71 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setInput('');
     };
 
-    const toggleRecording = async () => {
+    const toggleRecording = () => {
         if (isStartingRef.current) return;
+
+        // Dừng nếu đang ghi
         if (isRecordingRef.current) {
-            mediaRecorderRef.current?.stop();
-            isRecordingRef.current = false;
-            setIsRecording(false);
+            recognitionRef.current?.stop();
             return;
         }
+
+        // Kiểm tra browser có hỗ trợ Web Speech API không
+        const SpeechRecognition =
+            (window as any).SpeechRecognition ||
+            (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert('🎤 Trình duyệt của bạn không hỗ trợ nhận diện giọng nói.\nHãy dùng Chrome hoặc Edge.');
+            return;
+        }
+
         isStartingRef.current = true;
         try {
-            // getUserMedia chỉ hoạt động trên localhost hoặc HTTPS
-            if (!navigator.mediaDevices?.getUserMedia) {
-                alert('🎤 Mic chỉ hoạt động trên localhost hoặc kết nối HTTPS.\n\nTruy cập qua http://localhost:3000 hoặc dùng HTTPS để dùng chức năng này.');
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'vi-VN';        // Tiếng Việt (đổi 'en-US' nếu muốn tiếng Anh)
+            recognition.interimResults = true;  // Hiện text ngay khi nói chưa xong
+            recognition.continuous = false;     // Tự dừng sau khi im lặng
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                isRecordingRef.current = true;
                 isStartingRef.current = false;
-                return;
-            }
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            // Chọn format tốt nhất trình duyệt hỗ trợ
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : MediaRecorder.isTypeSupported('audio/webm')
-                    ? 'audio/webm'
-                    : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-                        ? 'audio/ogg;codecs=opus'
-                        : '';
-
-            const mediaRecorder = mimeType
-                ? new MediaRecorder(stream, { mimeType })
-                : new MediaRecorder(stream);
-
-            console.log('[Mic] Using mimeType:', mediaRecorder.mimeType);
-            mediaRecorderRef.current = mediaRecorder;
-            audioChunksRef.current = [];
-
-            mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+                setIsRecording(true);
+                console.log('[Mic] Web Speech API started');
             };
 
-            mediaRecorder.onstop = async () => {
-                stream.getTracks().forEach(t => t.stop());
-                const totalSize = audioChunksRef.current.reduce((s, b) => s + b.size, 0);
-                console.log('[Mic] Recorded chunks:', audioChunksRef.current.length, 'Total bytes:', totalSize);
-
-                if (totalSize === 0) {
-                    console.warn('[Mic] No audio data captured!');
-                    return;
+            recognition.onresult = (event: any) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const t = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) finalTranscript += t;
+                    else interimTranscript += t;
                 }
-
-                const ext = mediaRecorder.mimeType.includes('ogg') ? 'ogg' : 'webm';
-                const blob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
-                const formData = new FormData();
-                formData.append('audio', blob, `recording.${ext}`);
-
-                try {
-                    const apiBase = process.env.NEXT_PUBLIC_API_BASE
-                        || (typeof window !== 'undefined' ? `http://${window.location.hostname}:8080` : 'http://localhost:8080');
-                    console.log('[Mic] Sending to:', `${apiBase}/api/transcribe`);
-                    const res = await fetch(`${apiBase}/api/transcribe`, { method: 'POST', body: formData });
-                    console.log('[Mic] Transcribe status:', res.status);
-                    if (res.ok) {
-                        const data = await res.json();
-                        console.log('[Mic] Transcribed text:', data.text);
-                        if (data.text?.trim()) {
-                            setInput(data.text.trim());
-                        } else {
-                            console.warn('[Mic] Empty transcription result');
-                        }
-                    } else {
-                        const errText = await res.text();
-                        console.error('[Mic] Transcribe error response:', res.status, errText);
-                    }
-                } catch (err) {
-                    console.error('[Mic] Fetch error:', err);
-                }
+                // Hiện text realtime vào input
+                setInput(finalTranscript || interimTranscript);
             };
 
-            // timeslice 100ms → ondataavailable được gọi liên tục, không mất data
-            mediaRecorder.start(100);
-            isRecordingRef.current = true;
-            setIsRecording(true);
+            recognition.onerror = (event: any) => {
+                console.error('[Mic] Speech recognition error:', event.error);
+                if (event.error === 'not-allowed') {
+                    alert('🎤 Bạn cần cho phép quyền truy cập microphone trong trình duyệt.');
+                }
+                isRecordingRef.current = false;
+                setIsRecording(false);
+                isStartingRef.current = false;
+            };
+
+            recognition.onend = () => {
+                isRecordingRef.current = false;
+                setIsRecording(false);
+                console.log('[Mic] Web Speech API ended');
+            };
+
+            recognitionRef.current = recognition;
+            recognition.start();
         } catch (err) {
             console.error('[Mic] Start error:', err);
-        } finally {
             isStartingRef.current = false;
         }
     };
