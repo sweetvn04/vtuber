@@ -32,10 +32,9 @@ const apiFetch = (url: string, options: RequestInit = {}) => {
 const getWsBase = () => {
     if (typeof window !== 'undefined') {
         const apiBase = getApiBase();
-        const wsBase = apiBase.startsWith("https://")
+        return apiBase.startsWith("https://")
             ? apiBase.replace("https://", "wss://")
             : apiBase.replace("http://", "ws://");
-        return `${wsBase}?api_key=${getApiKey()}`;
     }
     return "ws://localhost:8080";
 };
@@ -252,7 +251,7 @@ export default function Home() {
         loadHistory();
 
         if (ws.current) ws.current.close();
-        ws.current = new WebSocket(`${getWsBase()}/ws/chat/${selectedSessionId}`);
+        ws.current = new WebSocket(`${getWsBase()}/ws/chat/${selectedSessionId}?api_key=${getApiKey()}`);
         ws.current.onopen = () => setStatus("Connected");
         ws.current.onclose = () => setStatus("Disconnected");
         ws.current.onerror = () => setStatus("Disconnected");
