@@ -17,11 +17,25 @@ const getApiBase = () => {
     return "http://localhost:8080";
 };
 
+const getApiKey = () => process.env.NEXT_PUBLIC_API_KEY || "";
+
+const apiFetch = (url: string, options: RequestInit = {}) => {
+    return fetch(url, {
+        ...options,
+        headers: {
+            ...(options.headers || {}),
+            "X-API-Key": getApiKey(),
+        },
+    });
+};
+
 const getWsBase = () => {
     if (typeof window !== 'undefined') {
         const apiBase = getApiBase();
-        if (apiBase.startsWith("https://")) return apiBase.replace("https://", "wss://");
-        return apiBase.replace("http://", "ws://");
+        const wsBase = apiBase.startsWith("https://")
+            ? apiBase.replace("https://", "wss://")
+            : apiBase.replace("http://", "ws://");
+        return `${wsBase}?api_key=${getApiKey()}`;
     }
     return "ws://localhost:8080";
 };
@@ -86,7 +100,7 @@ export default function Home() {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 4000);
             try {
-                const res = await fetch(`${getApiBase()}/api/chat/sessions`, {
+                const res = await apiFetch(`${getApiBase()}/api/chat/sessions`, {
                     signal: controller.signal,
                 });
                 clearTimeout(timer);
@@ -206,7 +220,7 @@ export default function Home() {
         if (!title) return;
         const url = `${getApiBase()}/api/chat/session/create`;
         try {
-            const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
+            const res = await apiFetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title }) });
             if (!res.ok) throw new Error(`Status ${res.status}`);
             const data = await res.json();
             await fetchSessions();
@@ -217,7 +231,7 @@ export default function Home() {
     const handleDeleteSession = useCallback(async (id: string) => {
         if (!window.confirm("Xóa cuộc trò chuyện này?")) return;
         try {
-            const res = await fetch(`${getApiBase()}/api/chat/session/${id}`, { method: "DELETE" });
+            const res = await apiFetch(`${getApiBase()}/api/chat/session/${id}`, { method: "DELETE" });
             if (res.ok) {
                 await fetchSessions();
                 if (selectedSessionId === id) { setSelectedSessionId(null); setChatLog([]); }
@@ -230,7 +244,7 @@ export default function Home() {
         if (!selectedSessionId) return;
         const loadHistory = async () => {
             try {
-                const res = await fetch(`${getApiBase()}/api/chat/session/${selectedSessionId}`);
+                const res = await apiFetch(`${getApiBase()}/api/chat/session/${selectedSessionId}`);
                 const data = await res.json();
                 setChatLog(data.history || []);
             } catch (e) { console.error("Lỗi tải lịch sử", e); }

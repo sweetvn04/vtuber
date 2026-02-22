@@ -31,7 +31,11 @@ print("[Search] search-service.py loaded OK")
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+API_SECRET_KEY = os.getenv("API_SECRET_KEY", "")
 SESSIONS_DIR = "sessions"
+
+if not API_SECRET_KEY:
+    print("WARNING: API_SECRET_KEY not set! Backend is unprotected.")
 
 if not os.path.exists(SESSIONS_DIR):
     os.makedirs(SESSIONS_DIR)
@@ -144,13 +148,41 @@ rvc = RVCService(model_filename=rvc_model_name)
 # --- FASTAPI APP ---
 app = FastAPI()
 
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://localhost:3000",
+    "http://vtuber.sweetvn2004.id.vn",
+    "https://vtuber.sweetvn2004.id.vn",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+from fastapi import Request, Query
+from fastapi.responses import Response
+
+# --- API KEY MIDDLEWARE ---
+@app.middleware("http")
+async def verify_api_key(request: Request, call_next):
+    # Cho phép OPTIONS (preflight CORS) đi qua không cần key
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    # WebSocket upgrade thì bỏ qua (WS tự kiểm tra bên dưới)
+    if request.headers.get("upgrade", "").lower() == "websocket":
+        return await call_next(request)
+    # Kiểm tra X-API-Key header
+    api_key = request.headers.get("X-API-Key", "")
+    if API_SECRET_KEY and api_key != API_SECRET_KEY:
+        return JSONResponse(
+            {"error": "Unauthorized", "detail": "Invalid or missing API key"},
+            status_code=401
+        )
+    return await call_next(request)
 
 @app.get("/api/chat/sessions")
 async def list_sessions():
@@ -213,7 +245,24 @@ async def delete_session(session_id: str):
     return {"error": "Not found"}
 
 @app.websocket("/ws/chat/{session_id}")
-async def chat_endpoint(websocket: WebSocket, session_id: str):
+async def chat_endpoint(
+    websocket: WebSocket,
+    session_id: str,
+    api_key: str = Query(default="", alias="api_key")
+):
+    # --- ORIGIN CHECK ---
+    origin = websocket.headers.get("origin", "")
+    if origin not in ALLOWED_ORIGINS:
+        await websocket.close(code=1008)
+        print(f"[WS] Blocked unauthorized origin: {origin!r}")
+        return
+
+    # --- API KEY CHECK cho WebSocket (qua query param vì browser WS k set header) ---
+    if API_SECRET_KEY and api_key != API_SECRET_KEY:
+        await websocket.close(code=1008)
+        print(f"[WS] Blocked: invalid api_key from origin {origin!r}")
+        return
+
     await websocket.accept()
     
     # Lấy lịch sử chat từ store
