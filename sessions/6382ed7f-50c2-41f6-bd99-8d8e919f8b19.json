@@ -202,6 +202,10 @@
     {
       "role": "assistant",
       "content": "Hiyori says: Good evening, sweetvn! 🌙 It’s a lovely evening, isn’t it? ✨ Let’s chat! 😊"
+    },
+    {
+      "role": "user",
+      "content": "xin chao"
     }
   ]
 }

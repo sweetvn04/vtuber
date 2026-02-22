@@ -38,6 +38,14 @@
     {
       "role": "assistant",
       "content": "Hi! Okay, let’s pick a color! Is it pink? 🌸"
+    },
+    {
+      "role": "user",
+      "content": "nice"
+    },
+    {
+      "role": "assistant",
+      "content": "Nice! Pink is a good choice! 😄 Do you want to draw a pink picture? 💖"
     }
   ]
 }
