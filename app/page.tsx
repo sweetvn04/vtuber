@@ -204,7 +204,7 @@ export default function Home() {
     const fetchSessions = useCallback(async () => {
         const url = `${getApiBase()}/api/chat/sessions`;
         try {
-            const res = await fetch(url);
+            const res = await apiFetch(url);
             if (!res.ok) throw new Error(`Status ${res.status}`);
             setSessions(await res.json());
         } catch (e: any) {
