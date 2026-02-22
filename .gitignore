@@ -52,3 +52,5 @@ next-env.d.ts
 backend/tts_model/
 backend/rvc_models/
 .venv/
+
+.env
