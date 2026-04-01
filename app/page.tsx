@@ -16,12 +16,12 @@ const getApiBase = () => {
             return `http://${window.location.hostname}:8080`;
         }
         if (process.env.NEXT_PUBLIC_API_BASE) return process.env.NEXT_PUBLIC_API_BASE;
-        return `http://${window.location.hostname}:8080`;
+        return "https://backend.sweetvn2004.id.vn"; // Fallback cứng cho Vercel
     }
-    return "http://localhost:8080";
+    return "https://backend.sweetvn2004.id.vn";
 };
 
-const getApiKey = () => process.env.NEXT_PUBLIC_API_KEY || "";
+const getApiKey = () => process.env.NEXT_PUBLIC_API_KEY || "789b2bbccd4a234ae9fd2c34b729d6ff9d283f166969cee01b2a5848bdfed2a8";
 
 const apiFetch = (url: string, options: RequestInit = {}) => {
     return fetch(url, {
