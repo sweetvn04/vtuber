@@ -4,13 +4,17 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // --- COMPONENTS ---
 import ChatInterface from "@/components/ChatInterface";
-import VtuberModelDisplay from "@/components/VtuberModelDisplay";
+import dynamic from "next/dynamic";
+const VtuberModelDisplay = dynamic(() => import("@/components/VtuberModelDisplay"), { ssr: false });
 import UserCamera from "@/components/UserCamera";
 import ChatHistorySidebar from "@/components/ChatHistorySidebar";
 
 // --- HELPERS ---
 const getApiBase = () => {
     if (typeof window !== 'undefined') {
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            return `http://${window.location.hostname}:8080`;
+        }
         if (process.env.NEXT_PUBLIC_API_BASE) return process.env.NEXT_PUBLIC_API_BASE;
         return `http://${window.location.hostname}:8080`;
     }
@@ -206,7 +210,29 @@ export default function Home() {
         try {
             const res = await apiFetch(url);
             if (!res.ok) throw new Error(`Status ${res.status}`);
-            setSessions(await res.json());
+            const data = await res.json();
+            setSessions(data);
+            
+            // AUTO SELECT or AUTO CREATE session for portfolio visitors
+            if (data.length > 0) {
+                setSelectedSessionId(prev => prev || data[0].id);
+            } else {
+                try {
+                    const createUrl = `${getApiBase()}/api/chat/session/create`;
+                    const createRes = await apiFetch(createUrl, { 
+                        method: "POST", 
+                        headers: { "Content-Type": "application/json" }, 
+                        body: JSON.stringify({ title: "Cuộc trò chuyện mới" }) 
+                    });
+                    if (createRes.ok) {
+                        const newSession = await createRes.json();
+                        setSessions([newSession]);
+                        setSelectedSessionId(newSession.id);
+                    }
+                } catch(err) {
+                    console.error("Auto create failed", err);
+                }
+            }
         } catch (e: any) {
             console.log(`Failed to fetch sessions: ${e.message}`);
         }

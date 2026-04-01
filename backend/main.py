@@ -151,6 +151,7 @@ app = FastAPI()
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://localhost:3000",
+    "http://localhost:5173",
     "http://vtuber.sweetvn2004.id.vn",
     "https://vtuber.sweetvn2004.id.vn",
 ]
