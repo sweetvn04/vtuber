@@ -54,3 +54,5 @@ backend/rvc_models/
 .venv/
 
 .env
+
+dist
