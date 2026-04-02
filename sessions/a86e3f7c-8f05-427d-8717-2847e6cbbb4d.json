@@ -190,6 +190,14 @@
     {
       "role": "assistant",
       "content": "You’re welcome! 😊 Always happy to chat! ✨ Do you want to play a little game, or just talk? 🥰"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi! It’s a sunny day here! ☀️ Do you want to draw a picture of the sun? 💛"
     }
   ]
 }

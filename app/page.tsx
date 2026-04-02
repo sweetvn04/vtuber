@@ -16,12 +16,12 @@ const getApiBase = () => {
             return `http://${window.location.hostname}:8080`;
         }
         if (process.env.NEXT_PUBLIC_API_BASE) return process.env.NEXT_PUBLIC_API_BASE;
-        return "https://backend.sweetvn2004.id.vn"; // Fallback cứng cho Vercel
+        return `http://${window.location.hostname}:8080`;
     }
-    return "https://backend.sweetvn2004.id.vn";
+    return "http://localhost:8080";
 };
 
-const getApiKey = () => process.env.NEXT_PUBLIC_API_KEY || "789b2bbccd4a234ae9fd2c34b729d6ff9d283f166969cee01b2a5848bdfed2a8";
+const getApiKey = () => process.env.NEXT_PUBLIC_API_KEY || "";
 
 const apiFetch = (url: string, options: RequestInit = {}) => {
     return fetch(url, {
@@ -212,24 +212,24 @@ export default function Home() {
             if (!res.ok) throw new Error(`Status ${res.status}`);
             const data = await res.json();
             setSessions(data);
-            
+
             // AUTO SELECT or AUTO CREATE session for portfolio visitors
             if (data.length > 0) {
                 setSelectedSessionId(prev => prev || data[0].id);
             } else {
                 try {
                     const createUrl = `${getApiBase()}/api/chat/session/create`;
-                    const createRes = await apiFetch(createUrl, { 
-                        method: "POST", 
-                        headers: { "Content-Type": "application/json" }, 
-                        body: JSON.stringify({ title: "Cuộc trò chuyện mới" }) 
+                    const createRes = await apiFetch(createUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ title: "Cuộc trò chuyện mới" })
                     });
                     if (createRes.ok) {
                         const newSession = await createRes.json();
                         setSessions([newSession]);
                         setSelectedSessionId(newSession.id);
                     }
-                } catch(err) {
+                } catch (err) {
                     console.error("Auto create failed", err);
                 }
             }
