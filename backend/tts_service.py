@@ -83,14 +83,22 @@ class PiperTTS:
             print(f"TTS Exception: {e}")
             return None
 
-    def generate_wav_file(self, text: str, output_path: str) -> bool:
+    def generate_wav_file(self, text: str, output_path: str, use_filter: bool = True) -> bool:
         """
         Sinh âm thanh từ văn bản và lưu trực tiếp vào file WAV.
         Hữu ích cho pipeline RVC (Text -> Wav -> RVC -> Wav).
         """
         if not text or not text.strip(): return False
         
-        cleaned_text = self.clean_text(text)
+        # Áp dụng bộ lọc text (có thể làm mất dấu tiếng Việt nếu filter chỉ giữ ASCII)
+        if use_filter:
+            cleaned_text = self.clean_text(text)
+        else:
+            # Xóa khoảng trắng thừa và ký tự như * (do thói quen dùng cho hành động)
+            import re
+            cleaned_text = re.sub(r'\*.*?\*', '', text)
+            cleaned_text = ' '.join(cleaned_text.split())
+
         if not cleaned_text: return False
 
         try:

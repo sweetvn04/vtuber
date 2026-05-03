@@ -166,6 +166,14 @@
     {
       "role": "assistant",
       "content": "Oh! Sweet just added one more thing! 🎉 There’s a new biome called the “Glimmering Grove”! It’s filled with glowing plants and sparkly mushrooms! 💖 It’s super pretty! ✨ Do you want to explore it? 😊"
+    },
+    {
+      "role": "user",
+      "content": "Chào"
+    },
+    {
+      "role": "assistant",
+      "content": "Chào! That’s a lovely greeting! 😊 It means “Hello” in Vietnamese! Do you want to learn some more Vietnamese words? ✨"
     }
   ]
 }
