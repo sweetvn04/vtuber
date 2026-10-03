@@ -51,6 +51,10 @@ next-env.d.ts
 *.wav
 backend/tts_model/
 backend/rvc_models/
+backend/sessions/*.json
+backend/__pycache__/
+__pycache__/
+*.py[cod]
 .venv/
 
 .env
