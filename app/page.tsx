@@ -354,119 +354,114 @@ export default function Home() {
     // ============================================================
     return (
         <div
-            className="relative flex flex-col w-full overflow-hidden text-slate-200 select-none"
-            style={{
-                height: viewportHeight,
-                backgroundImage: 'url(/anime_bg.png)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-            }}
+            className="relative flex flex-col w-full overflow-hidden text-slate-200 select-none bg-gradient-main"
+            style={{ height: viewportHeight }}
         >
-            {/* Dark Cyber Overlay */}
-            <div className="absolute inset-0 pointer-events-none z-0 bg-[#0d111a]/70 backdrop-blur-[2px]" />
+            {/* ── TOP NAVBAR ── */}
+            <header className="relative z-50 w-full h-14 px-4 flex items-center justify-between shrink-0"
+                style={{ background: 'rgba(15,17,23,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border-subtle)' }}>
 
-            {/* ── TOP NAVBAR (Standard ChatGPT / Gemini Header) ── */}
-            <header className="relative z-50 w-full bg-[#0d111a]/95 backdrop-blur-md border-b-2 border-slate-800 h-14 px-3 sm:px-4 flex items-center justify-between shrink-0">
-                {/* Left Brand & Sidebar Controls */}
+                {/* Left: hamburger + branding */}
                 <div className="flex items-center gap-2 sm:gap-3">
                     <button
-                        className="mc-btn-stone px-2.5 py-1.5 rounded text-xs font-pixel flex items-center gap-1.5"
+                        className="btn-ghost w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-white"
                         onClick={() =>
                             isDesktop
-                                ? setIsSidebarOpen((prev) => !prev)
-                                : setIsMobileMenuOpen((prev) => !prev)
+                                ? setIsSidebarOpen(prev => !prev)
+                                : setIsMobileMenuOpen(prev => !prev)
                         }
-                        title={isSidebarOpen ? "Đóng danh sách chat" : "Mở danh sách chat"}
+                        title={isSidebarOpen ? 'Đóng sidebar' : 'Mở sidebar'}
                     >
-                        <span>☰</span>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                        </svg>
                     </button>
+
+                    <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
+                            style={{ background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', boxShadow: '0 0 10px rgba(139,92,246,0.4)' }}>
+                            ✨
+                        </div>
+                        <span className="font-semibold text-sm text-slate-200 hidden sm:inline">
+                            Hiyori<span className="text-slate-500">.ai</span>
+                        </span>
+                    </div>
 
                     <button
                         onClick={handleNewChat}
-                        className="mc-btn px-2.5 py-1.5 rounded text-[10px] font-pixel uppercase flex items-center gap-1"
+                        className="btn-ghost px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 rounded-xl"
                         title="Tạo cuộc trò chuyện mới"
                     >
-                        <span>+</span>
-                        <span className="hidden sm:inline">NEW</span>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        <span className="hidden sm:inline">Mới</span>
                     </button>
-
-                    <div className="font-pixel text-xs sm:text-sm text-emerald-400 flex items-center gap-1.5 ml-1">
-                        <span className="text-white">⛏️</span> sweetvn<span className="text-slate-500">/</span>hiyori.ai<span className="animate-pulse">_</span>
-                    </div>
                 </div>
 
-                {/* Center: Layout View Mode Switcher (Split vs Wide Chat) */}
-                <div className="hidden md:flex items-center bg-[#141a26] border-2 border-slate-700/80 rounded p-0.5">
+                {/* Center: Layout switcher */}
+                <div className="hidden md:flex items-center gap-1 p-1 rounded-xl"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
                     <button
                         onClick={() => setIsChatExpanded(false)}
-                        className={`px-3 py-1 rounded text-[10px] font-pixel uppercase transition-all flex items-center gap-1.5 ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                             !isChatExpanded
-                                ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/50 shadow-sm'
+                                ? 'bg-violet-600/30 text-violet-300 shadow-sm'
                                 : 'text-slate-400 hover:text-slate-200'
                         }`}
-                        title="Chế độ chia đôi màn hình: Model Live2D + Chat"
+                        title="Split View: Live2D + Chat"
                     >
-                        <span>◫</span>
-                        <span>SPLIT VIEW</span>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9" />
+                        </svg>
+                        Split
                     </button>
-
                     <button
-                        onClick={() => {
-                            setIsChatExpanded(true);
-                            setIsPipModelVisible(true);
-                        }}
-                        className={`px-3 py-1 rounded text-[10px] font-pixel uppercase transition-all flex items-center gap-1.5 ${
+                        onClick={() => { setIsChatExpanded(true); setIsPipModelVisible(true); }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                             isChatExpanded
-                                ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/50 shadow-sm'
+                                ? 'bg-violet-600/30 text-violet-300 shadow-sm'
                                 : 'text-slate-400 hover:text-slate-200'
                         }`}
-                        title="Chế độ mở rộng Chat (Chuẩn ChatGPT/Gemini)"
+                        title="Wide Chat"
                     >
-                        <span>⊞</span>
-                        <span>WIDE CHAT</span>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+                        </svg>
+                        Chat
                     </button>
                 </div>
 
                 {/* Right controls */}
-                <div className="flex items-center gap-2 sm:gap-3">
-                    {/* Floating Model restore button when minimized */}
+                <div className="flex items-center gap-2">
                     {isChatExpanded && !isPipModelVisible && (
                         <button
                             onClick={() => setIsPipModelVisible(true)}
-                            className="mc-btn-stone px-2.5 py-1 rounded text-[10px] font-pixel text-emerald-400 flex items-center gap-1"
-                            title="Hiện lại model Hiyori"
+                            className="btn-ghost px-3 py-1.5 text-xs font-medium rounded-xl flex items-center gap-1.5"
                         >
                             <span>✨</span>
-                            <span className="hidden sm:inline">SHOW MODEL</span>
+                            <span className="hidden sm:inline">Hiyori</span>
                         </button>
                     )}
 
-                    {/* Server status badge */}
-                    <div className="mc-card px-2.5 py-1 rounded text-[10px] font-pixel flex items-center gap-1.5">
-                        <span
-                            className={`w-2 h-2 rounded-full ${
-                                backendOnline === false
-                                    ? 'bg-red-500 animate-pulse'
-                                    : 'bg-emerald-400 animate-ping'
-                            }`}
-                        />
-                        <span className={backendOnline === false ? 'text-red-400' : 'text-emerald-400'}>
-                            {backendOnline === false ? 'OFFLINE' : 'ONLINE'}
-                        </span>
-                    </div>
-
-                    {/* Quick TTS toggle */}
+                    {/* TTS toggle */}
                     <button
-                        onClick={() => setIsTtsEnabled((prev) => !prev)}
-                        className={`hidden sm:flex ${
-                            isTtsEnabled ? 'mc-btn' : 'mc-btn-stone'
-                        } px-2.5 py-1 rounded text-[10px] font-pixel items-center gap-1`}
-                        title={isTtsEnabled ? 'Tắt Piper TTS' : 'Bật Piper TTS'}
+                        onClick={() => setIsTtsEnabled(prev => !prev)}
+                        className={`hidden sm:flex btn-ghost px-3 py-1.5 text-xs font-medium rounded-xl items-center gap-1.5 ${isTtsEnabled ? 'text-emerald-400' : 'text-slate-400'}`}
+                        title={isTtsEnabled ? 'Tắt TTS' : 'Bật TTS'}
                     >
                         <span>{isTtsEnabled ? '🔊' : '🔇'}</span>
-                        <span>{isTtsEnabled ? 'TTS ON' : 'TTS OFF'}</span>
+                        <span>TTS</span>
                     </button>
+
+                    {/* Backend status */}
+                    <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium"
+                        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                        <span className={`status-dot ${backendOnline === null ? 'loading' : backendOnline === false ? 'offline' : 'online'}`} />
+                        <span className={`hidden sm:inline ${backendOnline === false ? 'text-red-400' : 'text-emerald-400'}`}>
+                            {backendOnline === false ? 'Offline' : 'Online'}
+                        </span>
+                    </div>
                 </div>
             </header>
 
@@ -509,10 +504,12 @@ export default function Home() {
                 >
                     <div className="w-full h-full relative">
                         <button
-                            className="absolute top-4 right-4 z-50 text-sm font-pixel text-slate-400 hover:text-white"
+                            className="absolute top-4 right-4 z-50 w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white btn-ghost"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
-                            ✕
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
                         </button>
                         <ChatHistorySidebar
                             sessions={sessions}
@@ -534,45 +531,55 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* ── LIVE2D MODEL STAGE (Full Stage in Split Mode, Floating PiP in Wide Chat Mode) ── */}
+                {/* ── LIVE2D MODEL STAGE ── */}
                 <div
                     className={
                         isChatExpanded
-                            ? `fixed bottom-24 right-6 z-40 w-52 h-72 rounded-xl overflow-hidden mc-card border-2 border-emerald-400 shadow-[0_8px_32px_rgba(0,0,0,0.8)] transition-all duration-300 ${
+                            ? `fixed bottom-6 right-6 z-40 w-52 h-72 rounded-2xl overflow-hidden transition-all duration-300 ${
                                   isPipModelVisible
                                       ? 'scale-100 opacity-100'
                                       : 'scale-75 opacity-0 pointer-events-none'
                               }`
                             : `relative shrink-0 h-[38vh] lg:h-full lg:flex-1 lg:shrink overflow-hidden flex flex-col transition-all duration-300`
                     }
+                    style={isChatExpanded ? {
+                        background: 'rgba(15,17,23,0.9)',
+                        border: '1px solid var(--border-default)',
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.2)'
+                    } : undefined}
                 >
-                    {/* Mini PiP Header when chat is expanded */}
+                    {/* Mini PiP Header */}
                     {isChatExpanded && (
-                        <div className="absolute top-0 left-0 right-0 z-30 bg-[#141a26]/90 border-b border-slate-700/80 px-2.5 py-1.5 flex justify-between items-center text-[9px] font-pixel text-emerald-400 select-none">
-                            <div className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <span>HIYORI PiP</span>
+                        <div className="absolute top-0 left-0 right-0 z-30 flex justify-between items-center px-3 py-2 select-none"
+                            style={{ background: 'rgba(15,17,23,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border-subtle)' }}>
+                            <div className="flex items-center gap-1.5 text-xs">
+                                <span className="status-dot online" />
+                                <span className="text-slate-300 font-medium">Hiyori</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => setIsChatExpanded(false)}
-                                    className="hover:text-white px-1 text-[11px]"
-                                    title="Quay lại Chia đôi màn hình (Split View)"
+                                    className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+                                    title="Split View"
                                 >
-                                    ◫
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9" />
+                                    </svg>
                                 </button>
                                 <button
                                     onClick={() => setIsPipModelVisible(false)}
-                                    className="hover:text-red-400 px-1 text-[11px]"
-                                    title="Thu nhỏ model"
+                                    className="w-6 h-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                                    title="Ẩn"
                                 >
-                                    ✕
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
                                 </button>
                             </div>
                         </div>
                     )}
 
-                    {/* Live2D Canvas - ALWAYS MOUNTED & RUNNING */}
+                    {/* Live2D Canvas - ALWAYS MOUNTED */}
                     <div className="w-full h-full relative">
                         <VtuberModelDisplay
                             status={status}
@@ -582,27 +589,27 @@ export default function Home() {
                             onModelClick={handleModelClick}
                         />
 
-                        {/* Top-left HUD badge (chỉ hiện khi ở Stage lớn) */}
+                        {/* Top-left HUD badge */}
                         {!isChatExpanded && (
-                            <div className="absolute top-3 left-4 z-20 mc-card p-2 px-3 rounded flex items-center gap-2 pointer-events-none text-[10px] font-mono select-none">
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="font-pixel text-emerald-400">HIYORI</span>
-                                <span className="text-slate-400 hidden sm:inline">| CUBISM ENGINE</span>
+                            <div className="absolute top-3 left-4 z-20 hud-badge px-3 py-1.5 flex items-center gap-2 pointer-events-none text-xs select-none">
+                                <span className="status-dot online" />
+                                <span className="font-medium text-slate-200">Hiyori</span>
+                                <span className="text-slate-500 hidden sm:inline">· Cubism</span>
                             </div>
                         )}
 
-                        {/* Bottom-left EXP Bar (chỉ hiện khi ở Stage lớn) */}
+                        {/* Bottom-left stats bar */}
                         {!isChatExpanded && (
-                            <div className="absolute bottom-4 left-4 z-20 mc-card p-3 rounded pointer-events-none hidden sm:block max-w-xs text-[10px] font-mono select-none">
-                                <div className="flex justify-between items-center text-[9px] font-pixel text-slate-400 mb-1.5">
-                                    <span className="text-emerald-400">AI CORE STATS</span>
-                                    <span className="text-[#4deeea]">LVL 3.59</span>
+                            <div className="absolute bottom-4 left-4 z-20 hud-badge p-3 pointer-events-none hidden sm:block select-none" style={{ minWidth: '180px' }}>
+                                <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
+                                    <span className="text-violet-400 font-medium">AI Stats</span>
+                                    <span className="text-cyan-400 font-mono text-xs">Gemini</span>
                                 </div>
-                                <div className="w-40 bg-slate-950 h-2.5 rounded-xs border border-slate-700 p-0.5 overflow-hidden">
-                                    <div className="exp-bar h-full w-full rounded-xs"></div>
+                                <div className="w-full bg-slate-900/80 h-1.5 rounded-full overflow-hidden mb-1.5">
+                                    <div className="progress-bar-fill h-full rounded-full" style={{ width: '72%' }} />
                                 </div>
-                                <div className="text-[9px] text-slate-400 mt-1.5 font-mono">
-                                    Voice: Piper TTS • LLM: Gemini
+                                <div className="text-xs text-slate-500 font-mono">
+                                    Piper TTS • Live2D v4
                                 </div>
                             </div>
                         )}
@@ -611,10 +618,10 @@ export default function Home() {
                         {modelReaction && (
                             <div className="absolute bottom-[62%] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
                                 <div
-                                    style={{ animation: 'bubbleIn 0.25s ease-out' }}
-                                    className="mc-card p-3 px-4 rounded text-xs font-mono text-emerald-200 border-2 border-emerald-400 shadow-[0_0_16px_rgba(76,175,80,0.5)] max-w-[240px] text-center leading-snug whitespace-pre-wrap"
+                                    style={{ animation: 'bubbleIn 0.25s ease-out', background: 'rgba(15,17,23,0.92)', border: '1px solid rgba(139,92,246,0.5)', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}
+                                    className="px-4 py-2.5 rounded-2xl text-sm text-violet-200 max-w-[240px] text-center leading-snug whitespace-pre-wrap backdrop-blur-sm"
                                 >
-                                    <div className="font-pixel text-[8px] text-emerald-400 mb-1">HIYORI:</div>
+                                    <div className="text-xs text-violet-400 font-medium mb-1">Hiyori ✨</div>
                                     {modelReaction}
                                 </div>
                             </div>
@@ -622,25 +629,28 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* ── DRAG RESIZE HANDLE (chỉ có trong Split View trên desktop) ── */}
+                {/* ── DRAG RESIZE HANDLE ── */}
                 {!isChatExpanded && (
                     <div
                         onMouseDown={onChatResizeStart}
-                        className="hidden lg:flex items-center justify-center w-2 flex-shrink-0 cursor-col-resize group z-10 bg-slate-900/60 hover:bg-emerald-500/80 border-x border-slate-800 transition-colors select-none"
-                        title="Kéo để thay đổi chiều rộng chat"
+                        className="hidden lg:flex items-center justify-center w-1.5 flex-shrink-0 cursor-col-resize group z-10 transition-colors select-none"
+                        style={{ background: 'var(--border-subtle)' }}
+                        title="Kéo để thay đổi chiều rộng"
                     >
-                        <div className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-400" />
+                        <div className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ background: 'var(--accent-violet)' }} />
                     </div>
                 )}
 
-                {/* ── CHAT INTERFACE PANE (Standard ChatGPT / Gemini Flex container) ── */}
+                {/* ── CHAT INTERFACE PANE ── */}
                 <div
-                    className={`flex flex-col min-h-0 border-t-2 lg:border-t-0 ${
-                        !isChatExpanded ? 'lg:border-l-2 border-slate-800' : ''
-                    } flex-shrink-0 transition-[width,flex] duration-300 ease-in-out bg-[#0d111a]/85 backdrop-blur-xl ${
+                    className={`flex flex-col min-h-0 flex-shrink-0 transition-[width,flex] duration-300 ease-in-out ${
                         isChatExpanded ? 'flex-1 w-full h-full' : 'flex-1 lg:flex-none lg:h-full'
                     }`}
-                    style={!isChatExpanded && isDesktop ? { width: `${chatWidth}px` } : {}}
+                    style={!isChatExpanded && isDesktop ? {
+                        width: `${chatWidth}px`,
+                        borderLeft: '1px solid var(--border-subtle)'
+                    } : undefined}
                 >
                     <ChatInterface
                         chatLog={chatLog}

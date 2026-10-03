@@ -1,13 +1,6 @@
 "use client";
 
-import React from 'react';
-
-interface ChatItem {
-    id: string;
-    title: string;
-    date: string;
-    preview: string;
-}
+import React, { useState, useMemo } from 'react';
 
 interface ChatHistorySidebarProps {
     onSelectChat?: (chat: any) => void;
@@ -32,128 +25,182 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
     isTtsEnabled = true,
     onToggleTts,
 }) => {
+    const [search, setSearch] = useState('');
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
+
+    const filtered = useMemo(() => {
+        if (!search.trim()) return sessions;
+        const q = search.toLowerCase();
+        return sessions.filter(s =>
+            (s.title || '').toLowerCase().includes(q) ||
+            (s.preview || '').toLowerCase().includes(q)
+        );
+    }, [sessions, search]);
+
+    // Group by date (Today / Yesterday / Older)
+    const grouped = useMemo(() => {
+        const now = new Date();
+        const today = now.toDateString();
+        const yesterday = new Date(now.getTime() - 86400000).toDateString();
+
+        const groups: { label: string; items: any[] }[] = [
+            { label: 'Hôm nay', items: [] },
+            { label: 'Hôm qua', items: [] },
+            { label: 'Trước đó', items: [] },
+        ];
+
+        for (const s of filtered) {
+            const d = new Date(s.created_at || Date.now()).toDateString();
+            if (d === today) groups[0].items.push(s);
+            else if (d === yesterday) groups[1].items.push(s);
+            else groups[2].items.push(s);
+        }
+
+        return groups.filter(g => g.items.length > 0);
+    }, [filtered]);
+
     return (
-        <div className="flex flex-col h-full text-slate-200 font-sans select-none bg-[#0d111a]/95 backdrop-blur-xl border-r-2 border-slate-800">
-            {/* Header */}
-            <div className="p-4 pl-12 lg:pl-4 border-b-2 border-slate-800 flex justify-between items-center bg-[#141a26]">
-                <div className="flex items-center gap-2">
-                    <span className="text-emerald-400 text-sm">📜</span>
-                    <h3 className="font-pixel text-xs text-emerald-400 tracking-wider uppercase">
-                        SESSIONS
-                    </h3>
+        <div className="flex flex-col h-full select-none"
+            style={{ background: 'rgba(15,17,23,0.97)', backdropFilter: 'blur(20px)', borderRight: '1px solid var(--border-subtle)' }}>
+
+            {/* ── HEADER ── */}
+            <div className="p-4 shrink-0" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-slate-200">Cuộc trò chuyện</span>
+                    <button
+                        onClick={onNewChat}
+                        className="btn-ghost w-8 h-8 flex items-center justify-center rounded-xl text-lg leading-none text-slate-400 hover:text-white"
+                        title="Tạo cuộc trò chuyện mới"
+                    >
+                        +
+                    </button>
                 </div>
-                <button
-                    className="mc-btn px-2.5 py-1 rounded text-[10px] font-pixel uppercase flex items-center gap-1"
-                    onClick={onNewChat}
-                    title="Tạo cuộc trò chuyện mới"
-                >
-                    <span>+</span>
-                    <span className="hidden sm:inline">NEW</span>
-                </button>
+
+                {/* Search bar */}
+                <div className="relative">
+                    <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none"
+                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                    </svg>
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="Tìm kiếm…"
+                        className="w-full bg-transparent text-sm text-slate-300 placeholder-slate-500 outline-none pl-8 pr-3 py-1.5 rounded-xl"
+                        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+                    />
+                </div>
             </div>
 
-            {/* Session List */}
-            <div className="grow overflow-y-auto p-3 space-y-2.5">
+            {/* ── SESSION LIST ── */}
+            <div className="grow overflow-y-auto p-2">
                 {sessions.length === 0 ? (
-                    <div className="mc-card p-4 rounded text-center my-6">
-                        <p className="font-pixel text-[10px] text-slate-400 mb-2">NO DATA</p>
-                        <p className="text-xs text-slate-400">Chưa có lịch sử chat.</p>
-                        <p className="text-[11px] text-emerald-400 mt-2 font-mono">Bấm [+ NEW] để bắt đầu!</p>
+                    <div className="flex flex-col items-center justify-center h-40 gap-3 text-center px-4">
+                        <div className="text-3xl opacity-30">💬</div>
+                        <p className="text-sm text-slate-500">Chưa có cuộc trò chuyện nào</p>
+                        <button
+                            onClick={onNewChat}
+                            className="btn-primary text-xs px-4 py-2 rounded-xl font-medium"
+                        >
+                            Tạo chat mới
+                        </button>
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-32 text-center px-4">
+                        <p className="text-sm text-slate-500">Không tìm thấy kết quả</p>
                     </div>
                 ) : (
-                    sessions.map((chat) => {
-                        const isSelected = selectedSessionId === chat.id;
-                        return (
-                            <div
-                                key={chat.id}
-                                className={`group relative p-3 rounded transition-all cursor-pointer ${
-                                    isSelected
-                                        ? 'bg-[#1a2333] border-2 border-emerald-400/90 shadow-[0_0_12px_rgba(76,175,80,0.25)]'
-                                        : 'bg-[#141a26]/80 hover:bg-[#182030] border-2 border-slate-800/80 hover:border-slate-700'
-                                }`}
-                                onClick={() => onSelectChat && onSelectChat(chat)}
-                            >
-                                <div className="flex justify-between items-start gap-2 mb-1.5">
-                                    <h4
-                                        className={`font-semibold text-xs truncate font-mono ${
-                                            isSelected ? 'text-emerald-300 font-bold' : 'text-slate-200'
-                                        }`}
-                                    >
-                                        {chat.title || 'Untitled Chat'}
-                                    </h4>
-                                    {isSelected && (
-                                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1 animate-ping" />
-                                    )}
+                    <div className="space-y-4">
+                        {grouped.map(group => (
+                            <div key={group.label}>
+                                <div className="px-2 pb-1 text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    {group.label}
                                 </div>
+                                <div className="space-y-0.5">
+                                    {group.items.map(chat => {
+                                        const isSelected = selectedSessionId === chat.id;
+                                        const isHovered = hoveredId === chat.id;
+                                        return (
+                                            <div
+                                                key={chat.id}
+                                                className={`sidebar-item group relative px-3 py-2.5 cursor-pointer ${isSelected ? 'active' : ''}`}
+                                                onClick={() => onSelectChat && onSelectChat(chat)}
+                                                onMouseEnter={() => setHoveredId(chat.id)}
+                                                onMouseLeave={() => setHoveredId(null)}
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`text-sm truncate font-medium ${isSelected ? 'text-violet-300' : 'text-slate-200'}`}>
+                                                            {chat.title || 'Untitled'}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 truncate mt-0.5">
+                                                            {chat.preview || 'Chưa có tin nhắn'}
+                                                        </p>
+                                                    </div>
 
-                                <p className="text-[11px] truncate text-slate-400 mb-2 font-sans">
-                                    {chat.preview || 'No messages yet...'}
-                                </p>
-
-                                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/60">
-                                    <span className="text-slate-400">
-                                        📅 {new Date(chat.created_at || Date.now()).toLocaleDateString()}
-                                    </span>
-
-                                    <button
-                                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 px-1.5 py-0.5 rounded bg-red-950/60 hover:bg-red-800 text-red-300 hover:text-white border border-red-700/50 transition-all text-[10px] font-pixel"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onDeleteSession && onDeleteSession(chat.id);
-                                        }}
-                                        title="Xóa cuộc trò chuyện này"
-                                    >
-                                        DEL
-                                    </button>
+                                                    {/* Delete button — show on hover or mobile */}
+                                                    {(isHovered || isSelected) && onDeleteSession && (
+                                                        <button
+                                                            className="btn-danger shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={e => { e.stopPropagation(); onDeleteSession(chat.id); }}
+                                                            title="Xóa"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
-                        );
-                    })
+                        ))}
+                    </div>
                 )}
             </div>
 
-            {/* System Control Settings */}
-            <div className="border-t-2 border-slate-800 bg-[#12161f] p-3 space-y-2">
-                <div className="font-pixel text-[9px] text-emerald-400/80 uppercase tracking-widest px-1">
-                    CONTROLS
-                </div>
-
-                {/* TTS Voice Toggle */}
-                <div className="flex items-center justify-between px-2 py-1.5 rounded mc-card">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm">{isTtsEnabled ? '🔊' : '🔇'}</span>
-                        <span className="text-xs font-mono text-slate-300">PIPER TTS</span>
+            {/* ── FOOTER SETTINGS ── */}
+            <div className="shrink-0 p-3 space-y-1" style={{ borderTop: '1px solid var(--border-subtle)' }}>
+                {/* TTS Toggle */}
+                <button
+                    onClick={onToggleTts}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-sm group"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid transparent' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
+                >
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-base">{isTtsEnabled ? '🔊' : '🔇'}</span>
+                        <span className="text-slate-300 font-medium">Piper TTS</span>
                     </div>
-                    <button
-                        onClick={onToggleTts}
-                        className={`${
-                            isTtsEnabled ? 'mc-btn' : 'mc-btn-stone'
-                        } px-2.5 py-1 rounded text-[9px] font-pixel uppercase`}
-                        title={isTtsEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
-                    >
-                        {isTtsEnabled ? 'ON' : 'OFF'}
-                    </button>
-                </div>
-
-                {/* Dark Mode Toggle */}
-                <div className="flex items-center justify-between px-2 py-1.5 rounded mc-card">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm">{isDarkMode ? '🌙' : '☀️'}</span>
-                        <span className="text-xs font-mono text-slate-300">THEME</span>
+                    <div className={`w-9 h-5 rounded-full relative transition-colors ${isTtsEnabled ? 'bg-violet-600' : 'bg-slate-700'}`}>
+                        <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isTtsEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </div>
-                    <button
-                        onClick={onToggleDarkMode}
-                        className="mc-btn-stone px-2.5 py-1 rounded text-[9px] font-pixel uppercase"
-                        title="Đổi giao diện"
-                    >
-                        {isDarkMode ? 'DARK' : 'LIGHT'}
-                    </button>
-                </div>
+                </button>
 
-                {/* Footer Count */}
-                <div className="pt-1 text-[9px] text-center font-pixel text-slate-400">
-                    <span className="text-emerald-400">{sessions.length}</span> LOGS STORED
-                </div>
+                {/* Theme Toggle */}
+                <button
+                    onClick={onToggleDarkMode}
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all text-sm group"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid transparent' }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'transparent')}
+                >
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-base">{isDarkMode ? '🌙' : '☀️'}</span>
+                        <span className="text-slate-300 font-medium">{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
+                    </div>
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                </button>
+
+                {/* Count */}
+                <p className="text-xs text-slate-600 text-center pt-1">
+                    {sessions.length} cuộc trò chuyện
+                </p>
             </div>
         </div>
     );
