@@ -105,10 +105,11 @@ export default function Home() {
     // Tự động trigger resize cho PixiJS Canvas sau khi panel transition kết thúc
     useEffect(() => {
         const timer = setTimeout(() => {
+            window.dispatchEvent(new Event('resize-immediate'));
             window.dispatchEvent(new Event('resize'));
-        }, 320);
+        }, 360);
         return () => clearTimeout(timer);
-    }, [isSidebarOpen, isChatExpanded, isPipModelVisible]);
+    }, [isSidebarOpen, isChatExpanded, isPipModelVisible, chatWidth]);
 
     // --- BACKEND HEALTH CHECK (ping độc lập với session) ---
     useEffect(() => {
@@ -473,15 +474,16 @@ export default function Home() {
                 />
             )}
 
-            {/* ── WORKSPACE BODY (Standard Flex Layout) ── */}
+            {/* ── WORKSPACE BODY ── */}
             <div className="relative flex-1 flex w-full min-h-0 overflow-hidden">
-                {/* ── DESKTOP SIDEBAR (Collapsible like ChatGPT / Gemini) ── */}
+                {/* Desktop Sidebar */}
                 <div
                     className={`hidden lg:block h-full transition-[width,opacity] duration-300 ease-in-out shrink-0 overflow-hidden ${
-                        isSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'
+                        isSidebarOpen ? 'opacity-100' : 'w-0 opacity-0 pointer-events-none'
                     }`}
+                    style={isSidebarOpen ? { width: `${sidebarWidth}px` } : undefined}
                 >
-                    <div className="w-64 h-full">
+                    <div style={{ width: `${sidebarWidth}px` }} className="h-full">
                         <ChatHistorySidebar
                             sessions={sessions}
                             selectedSessionId={selectedSessionId}
@@ -496,7 +498,7 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* ── MOBILE SIDEBAR DRAWER ── */}
+                {/* Mobile Drawer */}
                 <div
                     className={`lg:hidden fixed inset-y-0 left-0 z-[55] w-72 h-full transition-transform duration-300 ease-in-out ${
                         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
@@ -531,27 +533,136 @@ export default function Home() {
                     </div>
                 </div>
 
-                {/* ── LIVE2D MODEL STAGE ── */}
-                <div
-                    className={
-                        isChatExpanded
-                            ? `fixed bottom-6 right-6 z-40 w-52 h-72 rounded-2xl overflow-hidden transition-all duration-300 ${
-                                  isPipModelVisible
-                                      ? 'scale-100 opacity-100'
-                                      : 'scale-75 opacity-0 pointer-events-none'
-                              }`
-                            : `relative shrink-0 h-[38vh] lg:h-full lg:flex-1 lg:shrink overflow-hidden flex flex-col transition-all duration-300`
-                    }
-                    style={isChatExpanded ? {
-                        background: 'rgba(15,17,23,0.9)',
-                        border: '1px solid var(--border-default)',
-                        boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.2)'
-                    } : undefined}
-                >
-                    {/* Mini PiP Header */}
-                    {isChatExpanded && (
-                        <div className="absolute top-0 left-0 right-0 z-30 flex justify-between items-center px-3 py-2 select-none"
-                            style={{ background: 'rgba(15,17,23,0.85)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--border-subtle)' }}>
+                {/* ── MAIN STAGE & CHAT WORKSPACE ── */}
+                <div className="relative flex-1 h-full min-w-0 overflow-hidden">
+                    {/* ── CHAT PANEL ── */}
+                    <div
+                        className="h-full flex flex-col min-h-0 shrink-0"
+                        style={{
+                            width: isChatExpanded
+                                ? '100%'
+                                : isDesktop
+                                ? `${chatWidth}px`
+                                : '100%',
+                            marginLeft: 'auto',
+                            borderLeft: (!isChatExpanded && isDesktop)
+                                ? '1px solid var(--border-subtle)'
+                                : 'none',
+                            paddingTop: (!isChatExpanded && !isDesktop)
+                                ? '38vh'
+                                : '0px',
+                            transition: 'width 350ms cubic-bezier(0.4, 0, 0.2, 1), padding 350ms cubic-bezier(0.4, 0, 0.2, 1)',
+                        }}
+                    >
+                        <ChatInterface
+                            chatLog={chatLog}
+                            onSendMessage={handleSendMessage}
+                            disabled={!selectedSessionId}
+                            isThinking={isThinking}
+                            isSearching={isSearching}
+                            isDarkMode={isDarkMode}
+                            isFullScreen={isChatExpanded}
+                            onToggleFullScreen={() => {
+                                setIsChatExpanded((prev) => {
+                                    const nextState = !prev;
+                                    if (nextState) setIsPipModelVisible(true);
+                                    return nextState;
+                                });
+                            }}
+                            backendOnline={backendOnline}
+                            modelReaction={modelReaction}
+                        />
+                    </div>
+
+                    {/* ── RESIZE HANDLE (split mode desktop only) ── */}
+                    {!isChatExpanded && isDesktop && (
+                        <div
+                            onMouseDown={onChatResizeStart}
+                            className="hidden lg:flex items-center justify-center group select-none"
+                            style={{
+                                position: 'absolute',
+                                top: '0',
+                                right: `${chatWidth - 3}px`,
+                                bottom: '0',
+                                width: '6px',
+                                zIndex: 42,
+                                cursor: 'col-resize',
+                                transition: 'right 350ms cubic-bezier(0.4, 0, 0.2, 1)',
+                            }}
+                            title="Kéo để thay đổi chiều rộng"
+                        >
+                            <div
+                                className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ background: 'var(--accent-violet)' }}
+                            />
+                        </div>
+                    )}
+
+                    {/* ── LIVE2D MODEL STAGE / FLOATING PIP ── */}
+                    <div
+                        className="overflow-hidden"
+                        style={{
+                            position: 'absolute',
+                            zIndex: 40,
+                            willChange: 'top, left, right, bottom, width, height, border-radius, box-shadow, transform, opacity',
+                            transition: 'all 350ms cubic-bezier(0.4, 0, 0.2, 1)',
+
+                            // Wide Chat (PiP Card mode)
+                            ...(isChatExpanded ? {
+                                top: 'calc(100% - 312px)',
+                                left: 'calc(100% - 232px)',
+                                right: '24px',
+                                bottom: '24px',
+                                borderRadius: '16px',
+                                border: '1px solid var(--border-default)',
+                                background: 'rgba(15, 17, 23, 0.92)',
+                                backdropFilter: 'blur(16px)',
+                                boxShadow: '0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(139,92,246,0.25)',
+                                opacity: isPipModelVisible ? 1 : 0,
+                                pointerEvents: isPipModelVisible ? 'auto' : 'none',
+                                transform: isPipModelVisible ? 'scale(1)' : 'scale(0.85) translateY(20px)',
+                            }
+                            // Split View (Desktop)
+                            : isDesktop ? {
+                                top: '0px',
+                                left: '0px',
+                                right: `${chatWidth}px`,
+                                bottom: '0px',
+                                borderRadius: '0px',
+                                border: 'none',
+                                background: 'transparent',
+                                boxShadow: 'none',
+                                opacity: 1,
+                                pointerEvents: 'auto',
+                                transform: 'scale(1)',
+                            }
+                            // Split View (Mobile)
+                            : {
+                                top: '0px',
+                                left: '0px',
+                                right: '0px',
+                                bottom: 'calc(100% - 38vh)',
+                                borderRadius: '0px',
+                                border: 'none',
+                                background: 'transparent',
+                                boxShadow: 'none',
+                                opacity: 1,
+                                pointerEvents: 'auto',
+                                transform: 'scale(1)',
+                            })
+                        }}
+                    >
+                        {/* Mini PiP Header */}
+                        <div
+                            className={`absolute top-0 left-0 right-0 z-30 flex justify-between items-center px-3 py-2 select-none transition-opacity duration-200 ${
+                                isChatExpanded ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+                            }`}
+                            style={{
+                                background: 'rgba(15,17,23,0.85)',
+                                backdropFilter: 'blur(12px)',
+                                borderBottom: '1px solid var(--border-subtle)',
+                            }}
+                        >
                             <div className="flex items-center gap-1.5 text-xs">
                                 <span className="status-dot online" />
                                 <span className="text-slate-300 font-medium">Hiyori</span>
@@ -577,30 +688,35 @@ export default function Home() {
                                 </button>
                             </div>
                         </div>
-                    )}
 
-                    {/* Live2D Canvas - ALWAYS MOUNTED */}
-                    <div className="w-full h-full relative">
-                        <VtuberModelDisplay
-                            status={status}
-                            audioUrl={currentAudioUrl}
-                            isDarkMode={isDarkMode}
-                            toggleTheme={toggleTheme}
-                            onModelClick={handleModelClick}
-                        />
+                        {/* Canvas */}
+                        <div className="w-full h-full relative">
+                            <VtuberModelDisplay
+                                status={status}
+                                audioUrl={currentAudioUrl}
+                                isDarkMode={isDarkMode}
+                                toggleTheme={toggleTheme}
+                                onModelClick={handleModelClick}
+                            />
 
-                        {/* Top-left HUD badge */}
-                        {!isChatExpanded && (
-                            <div className="absolute top-3 left-4 z-20 hud-badge px-3 py-1.5 flex items-center gap-2 pointer-events-none text-xs select-none">
+                            {/* Top-left HUD badge */}
+                            <div
+                                className={`absolute top-3 left-4 z-20 hud-badge px-3 py-1.5 flex items-center gap-2 pointer-events-none text-xs select-none transition-opacity duration-200 ${
+                                    !isChatExpanded ? 'opacity-100' : 'opacity-0'
+                                }`}
+                            >
                                 <span className="status-dot online" />
                                 <span className="font-medium text-slate-200">Hiyori</span>
                                 <span className="text-slate-500 hidden sm:inline">· Cubism</span>
                             </div>
-                        )}
 
-                        {/* Bottom-left stats bar */}
-                        {!isChatExpanded && (
-                            <div className="absolute bottom-4 left-4 z-20 hud-badge p-3 pointer-events-none hidden sm:block select-none" style={{ minWidth: '180px' }}>
+                            {/* Bottom-left stats bar */}
+                            <div
+                                className={`absolute bottom-4 left-4 z-20 hud-badge p-3 pointer-events-none hidden sm:block select-none transition-opacity duration-200 ${
+                                    !isChatExpanded ? 'opacity-100' : 'opacity-0'
+                                }`}
+                                style={{ minWidth: '180px' }}
+                            >
                                 <div className="flex justify-between items-center text-xs text-slate-400 mb-2">
                                     <span className="text-violet-400 font-medium">AI Stats</span>
                                     <span className="text-cyan-400 font-mono text-xs">Gemini</span>
@@ -608,68 +724,28 @@ export default function Home() {
                                 <div className="w-full bg-slate-900/80 h-1.5 rounded-full overflow-hidden mb-1.5">
                                     <div className="progress-bar-fill h-full rounded-full" style={{ width: '72%' }} />
                                 </div>
-                                <div className="text-xs text-slate-500 font-mono">
-                                    Piper TTS • Live2D v4
-                                </div>
+                                <div className="text-xs text-slate-500 font-mono">Piper TTS · Live2D v4</div>
                             </div>
-                        )}
 
-                        {/* Speech Bubble Popup */}
-                        {modelReaction && (
-                            <div className="absolute bottom-[62%] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                                <div
-                                    style={{ animation: 'bubbleIn 0.25s ease-out', background: 'rgba(15,17,23,0.92)', border: '1px solid rgba(139,92,246,0.5)', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}
-                                    className="px-4 py-2.5 rounded-2xl text-sm text-violet-200 max-w-[240px] text-center leading-snug whitespace-pre-wrap backdrop-blur-sm"
-                                >
-                                    <div className="text-xs text-violet-400 font-medium mb-1">Hiyori ✨</div>
-                                    {modelReaction}
+                            {/* Speech bubble */}
+                            {modelReaction && (
+                                <div className="absolute bottom-[62%] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                                    <div
+                                        style={{
+                                            animation: 'bubbleIn 0.25s ease-out',
+                                            background: 'rgba(15,17,23,0.92)',
+                                            border: '1px solid rgba(139,92,246,0.5)',
+                                            boxShadow: '0 0 20px rgba(139,92,246,0.3)',
+                                        }}
+                                        className="px-4 py-2.5 rounded-2xl text-sm text-violet-200 max-w-[240px] text-center leading-snug whitespace-pre-wrap backdrop-blur-sm"
+                                    >
+                                        <div className="text-xs text-violet-400 font-medium mb-1">Hiyori ✨</div>
+                                        {modelReaction}
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
-
-                {/* ── DRAG RESIZE HANDLE ── */}
-                {!isChatExpanded && (
-                    <div
-                        onMouseDown={onChatResizeStart}
-                        className="hidden lg:flex items-center justify-center w-1.5 flex-shrink-0 cursor-col-resize group z-10 transition-colors select-none"
-                        style={{ background: 'var(--border-subtle)' }}
-                        title="Kéo để thay đổi chiều rộng"
-                    >
-                        <div className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ background: 'var(--accent-violet)' }} />
-                    </div>
-                )}
-
-                {/* ── CHAT INTERFACE PANE ── */}
-                <div
-                    className={`flex flex-col min-h-0 flex-shrink-0 transition-[width,flex] duration-300 ease-in-out ${
-                        isChatExpanded ? 'flex-1 w-full h-full' : 'flex-1 lg:flex-none lg:h-full'
-                    }`}
-                    style={!isChatExpanded && isDesktop ? {
-                        width: `${chatWidth}px`,
-                        borderLeft: '1px solid var(--border-subtle)'
-                    } : undefined}
-                >
-                    <ChatInterface
-                        chatLog={chatLog}
-                        onSendMessage={handleSendMessage}
-                        disabled={!selectedSessionId}
-                        isThinking={isThinking}
-                        isSearching={isSearching}
-                        isDarkMode={isDarkMode}
-                        isFullScreen={isChatExpanded}
-                        onToggleFullScreen={() => {
-                            setIsChatExpanded((prev) => {
-                                const nextState = !prev;
-                                if (nextState) setIsPipModelVisible(true);
-                                return nextState;
-                            });
-                        }}
-                        backendOnline={backendOnline}
-                        modelReaction={modelReaction}
-                    />
                 </div>
             </div>
 

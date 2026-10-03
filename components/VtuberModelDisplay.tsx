@@ -303,7 +303,9 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
                 resizeModel();
                 window.addEventListener('resize', debouncedResize);
+                window.addEventListener('resize-immediate', resizeModel);
                 (pixiApp.current as any).resizeListener = debouncedResize;
+                (pixiApp.current as any).immediateResizeListener = resizeModel;
 
                 // --- IDLE SETUP ---
                 if (model.internalModel.motionManager) {
@@ -334,6 +336,9 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
             if (pixiApp.current) {
                 if ((pixiApp.current as any).resizeListener) {
                     window.removeEventListener('resize', (pixiApp.current as any).resizeListener);
+                }
+                if ((pixiApp.current as any).immediateResizeListener) {
+                    window.removeEventListener('resize-immediate', (pixiApp.current as any).immediateResizeListener);
                 }
                 pixiApp.current.destroy(true);
                 pixiApp.current = null;
@@ -370,7 +375,7 @@ const VtuberModelDisplay: React.FC<VtuberModelDisplayProps> = ({ status, audioUr
 
             <div
                 ref={containerRef}
-                className="w-full h-full cursor-pointer"
+                className="w-full h-full cursor-pointer live2d-stage"
                 onClick={onModelClick}
             />
 

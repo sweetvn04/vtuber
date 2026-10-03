@@ -317,3 +317,11 @@ body::before {
   background: linear-gradient(90deg, #8b5cf6, #22d3ee);
   box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
 }
+
+/* ── LIVE2D CANVAS SMOOTH SCALING DURING TRANSITIONS ── */
+.live2d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  display: block;
+}
