@@ -12,7 +12,7 @@ interface ChatInterfaceProps {
     isFullScreen?: boolean;
     onToggleFullScreen?: () => void;
     backendOnline?: boolean | null;
-    modelReaction?: string | null; // phản ứng khi click vào model
+    modelReaction?: string | null;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -21,7 +21,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     disabled,
     isThinking,
     isSearching = false,
-    isDarkMode = false,
+    isDarkMode = true,
     isFullScreen = false,
     onToggleFullScreen,
     backendOnline = null,
@@ -48,13 +48,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const toggleRecording = () => {
         if (isStartingRef.current) return;
 
-        // Dừng nếu đang ghi
         if (isRecordingRef.current) {
             recognitionRef.current?.stop();
             return;
         }
 
-        // Kiểm tra browser có hỗ trợ Web Speech API không
         const SpeechRecognition =
             (window as any).SpeechRecognition ||
             (window as any).webkitSpeechRecognition;
@@ -66,9 +64,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         isStartingRef.current = true;
         try {
             const recognition = new SpeechRecognition();
-            recognition.lang = 'vi-VN';        // Tiếng Việt (đổi 'en-US' nếu muốn tiếng Anh)
-            recognition.interimResults = true;  // Hiện text ngay khi nói chưa xong
-            recognition.continuous = false;     // Tự dừng sau khi im lặng
+            recognition.lang = 'vi-VN';
+            recognition.interimResults = true;
+            recognition.continuous = false;
             recognition.maxAlternatives = 1;
 
             recognition.onstart = () => {
@@ -86,7 +84,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     if (event.results[i].isFinal) finalTranscript += t;
                     else interimTranscript += t;
                 }
-                // Hiện text realtime vào input
                 setInput(finalTranscript || interimTranscript);
             };
 
@@ -114,7 +111,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         }
     };
 
-
     // Hold M to record
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -131,169 +127,217 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         };
     }, []);
 
-    // ── STYLE VARIABLES ──
-    const subText = 'text-gray-300';
-    const assistantBg = 'bg-white/10 border-white/10 text-gray-100 backdrop-blur-sm';
-    const userBg = 'bg-purple-600/90 text-white backdrop-blur-sm';
-    const inputBg = 'bg-white/10 border-white/20 text-white placeholder-white/40 backdrop-blur-md';
-
     return (
-        <div className="flex flex-col h-full text-gray-100">
+        <div className="flex flex-col h-full text-slate-200 font-sans select-none bg-[#0d111a]/95 backdrop-blur-xl">
             {/* ── HEADER ── */}
-            <div className="px-4 py-3 border-b flex justify-between items-center backdrop-blur-xl border-white/10 bg-black/30">
-                <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full animate-pulse ${backendOnline === false ? 'bg-red-500' : 'bg-green-500'}`} />
-                    <h2 className="font-bold text-xs tracking-wider uppercase opacity-70">Live Chat</h2>
+            <div className="px-4 py-3 border-b-2 border-slate-800 flex justify-between items-center bg-[#141a26]/90 shrink-0">
+                <div className="flex items-center gap-2.5">
+                    <span
+                        className={`w-2.5 h-2.5 rounded-full ${
+                            backendOnline === false
+                                ? 'bg-red-500 animate-pulse'
+                                : 'bg-emerald-400 shadow-[0_0_8px_#4ade80]'
+                        }`}
+                    />
+                    <div className="font-pixel text-[11px] tracking-wider uppercase text-emerald-400 flex items-center gap-1.5">
+                        <span>LIVE CHAT</span>
+                        <span className="text-slate-500 font-mono text-[10px]">
+                            [{backendOnline === false ? 'OFFLINE' : 'ONLINE'}]
+                        </span>
+                    </div>
                 </div>
 
                 {onToggleFullScreen && (
                     <button
                         onClick={onToggleFullScreen}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold
-                            bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white
-                            transition-all duration-200 active:scale-95"
-                        title={isFullScreen ? 'Thu nhỏ lại' : 'Mở toàn màn hình'}
+                        className="mc-btn-stone px-2.5 py-1 rounded text-[10px] font-pixel uppercase flex items-center gap-1.5"
+                        title={isFullScreen ? 'Chuyển sang Chia đôi màn hình (Split View)' : 'Mở rộng khung Chat (Wide Chat)'}
                     >
-                        {isFullScreen
-                            ? <><span className="text-sm">⊠</span><span>Thu nhỏ</span></>
-                            : <><span className="text-sm">⊞</span><span>Mở rộng</span></>
-                        }
+                        <span>{isFullScreen ? '◫ SPLIT VIEW' : '⊞ EXPAND CHAT'}</span>
                     </button>
                 )}
             </div>
 
-            {/* ── MESSAGES ── */}
-            <div className="grow overflow-y-auto p-4 space-y-4 bg-transparent">
-
-                {/* Welcome message */}
-                <div className="flex flex-col gap-1 max-w-[85%] w-fit mr-auto">
-                    <span className={`text-[10px] font-bold ml-2 uppercase opacity-50 ${subText}`}>Hiyori ✨</span>
-                    <div className={`p-4 rounded-2xl rounded-tl-none shadow-sm border text-sm leading-relaxed ${assistantBg}`}>
-                        <p className="font-semibold mb-1">Yahhoo~! こんにちは! (◕‿◕✿)</p>
-                        <p className="opacity-90 mb-2">
-                            Mình là <span className="font-bold text-purple-300">Hiyori</span> — VTuber đồng hành của bạn!
-                            Hỏi mình bất cứ điều gì nhé, mình luôn ở đây~ 💜
-                        </p>
-                        <div className="flex flex-wrap gap-1.5 mt-2 pt-2 border-t border-white/10">
-                            {['💬 Trò chuyện', '🌐 Tìm kiếm web', '🎵 Nghe giọng mình', '🎮 Hỏi về game'].map(tag => (
-                                <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/25 border border-purple-400/30 opacity-80">{tag}</span>
-                            ))}
+            {/* ── MESSAGES CONTAINER (Centered max-w-3xl like ChatGPT/Gemini when expanded) ── */}
+            <div className="grow overflow-y-auto p-4 sm:p-6 select-text">
+                <div className={`space-y-4 ${isFullScreen ? 'max-w-3xl w-full mx-auto' : 'w-full'}`}>
+                    {/* Welcome message */}
+                    <div className="flex flex-col gap-1.5 max-w-[90%] mr-auto">
+                        <div className="flex items-center gap-1.5 ml-1">
+                            <span className="text-xs">✨</span>
+                            <span className="font-pixel text-[10px] text-emerald-400">HIYORI.AI</span>
+                            <span className="text-[9px] font-mono text-slate-500">[COMPANION]</span>
                         </div>
-                    </div>
-                </div>
-
-                {/* ── HIYORI: CHECKING (backendOnline = null) ── */}
-                {backendOnline === null && (
-                    <div className="flex flex-col gap-1 max-w-[85%] w-fit mr-auto">
-                        <span className={`text-[10px] font-bold ml-2 uppercase opacity-50 ${subText}`}>Hiyori 🔄</span>
-                        <div className={`flex items-center gap-2 p-3 rounded-2xl rounded-tl-none border text-xs ${assistantBg}`}>
-                            <span className="animate-spin inline-block text-sm">⟳</span>
-                            <span className="opacity-80">Đang kiểm tra kết nối với server...</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── HIYORI: OFFLINE WARNING (backendOnline = false) ── */}
-                {backendOnline === false && (
-                    <div className="flex flex-col gap-1 max-w-[90%] w-fit mr-auto">
-                        <span className={`text-[10px] font-bold ml-2 uppercase opacity-50 ${subText}`}>Hiyori ⚠️</span>
-                        <div className="p-4 rounded-2xl rounded-tl-none shadow-sm border text-sm leading-relaxed bg-orange-950/60 border-orange-500/30 backdrop-blur-sm">
-                            <p className="font-bold text-orange-200 mb-2">
-                                Ara ara... mình đang không liên lạc được với server! (´◕ᴥ◕`)
+                        <div className="mc-card p-3.5 sm:p-4 rounded text-xs sm:text-sm leading-relaxed text-slate-200">
+                            <p className="font-bold text-emerald-300 font-mono mb-1">
+                                Yahhoo~! こんにちは! (◕‿◕✿)
                             </p>
-                            <p className="text-orange-100/80 text-xs leading-relaxed mb-3">
-                                Server backend của mình được chạy trực tiếp trên <strong>laptop cá nhân</strong> qua
-                                <strong> Cloudflare Tunnel</strong>. Có thể chủ nhân đang tắt máy,
-                                mất điện, hoặc mất internet rồi~ 😢
+                            <p className="text-xs text-slate-300 mb-2 leading-relaxed">
+                                Mình là <strong className="text-emerald-400 font-semibold">Hiyori</strong> — VTuber AI do{' '}
+                                <strong className="text-white">sweetvn</strong> phát triển! Bạn có thể gõ tiếng Việt hoặc
+                                nói tiếng Anh để luyện tập cùng mình nhé~ 💜
                             </p>
-                            <div className="flex flex-wrap gap-2 text-[11px] text-orange-200/70">
-                                <span>💭 Chat với mình: không khả dụng</span>
-                                <span>🎤 Giọng nói (TTS): không khả dụng</span>
+                            <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-800">
+                                {['💬 Chat Realtime', '🌐 DuckDuckGo Search', '🔊 Piper TTS', '🎮 Live2D Model'].map(
+                                    (tag) => (
+                                        <span
+                                            key={tag}
+                                            className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#1e2738] border border-slate-700 text-slate-300"
+                                        >
+                                            {tag}
+                                        </span>
+                                    )
+                                )}
                             </div>
                         </div>
                     </div>
-                )}
 
-                {/* ── CHAT LOG ── */}
-                {chatLog.map((msg, index) => (
-                    <div key={index} className={`flex flex-col gap-1 max-w-[85%] w-fit ${msg.role === 'assistant' ? 'mr-auto items-start' : 'ml-auto items-end'}`}>
-                        <span className={`text-[10px] font-bold px-2 opacity-50 uppercase ${subText}`}>
-                            {msg.role === 'assistant' ? 'Hiyori' : 'You'}
-                        </span>
-                        <div className={`p-3 rounded-2xl shadow-sm text-sm leading-relaxed border ${msg.role === 'assistant'
-                            ? `${assistantBg} rounded-tl-none`
-                            : `${userBg} rounded-tr-none border-transparent`
-                            }`}>
-                            <p className="break-words m-0">{msg.content}</p>
+                    {/* ── BACKEND CHECKING ── */}
+                    {backendOnline === null && (
+                        <div className="flex flex-col gap-1 max-w-[85%] mr-auto">
+                            <div className="mc-card p-3 rounded text-xs flex items-center gap-2 text-slate-400 font-mono">
+                                <span className="animate-spin text-emerald-400">⟳</span>
+                                <span>Đang kiểm tra kết nối với server backend...</span>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    )}
 
+                    {/* ── BACKEND OFFLINE WARNING ── */}
+                    {backendOnline === false && (
+                        <div className="flex flex-col gap-1 max-w-[92%] mr-auto">
+                            <div className="p-3.5 rounded border-2 border-red-500/50 bg-red-950/50 text-red-200 text-xs shadow-lg">
+                                <div className="flex items-center gap-2 mb-1.5 font-pixel text-[10px] text-red-400">
+                                    <span>⚠️</span>
+                                    <span>SERVER CONNECTION LOST</span>
+                                </div>
+                                <p className="leading-relaxed text-slate-300 mb-2 font-sans">
+                                    Server backend hiện không phản hồi. Nếu bạn đang chạy local, hãy đảm bảo{' '}
+                                    <code className="bg-black/50 px-1 py-0.5 rounded text-emerald-400 font-mono">
+                                        python main.py
+                                    </code>{' '}
+                                    đang chạy ở cổng 8080!
+                                </p>
+                                <div className="font-mono text-[10px] text-red-300/80 flex flex-wrap gap-2">
+                                    <span>• WebSocket: Disconnected</span>
+                                    <span>• TTS Audio: Offline</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-                {/* ── SEARCHING INDICATOR ── */}
-                {isSearching && (
-                    <div className={`flex gap-2 items-center p-3 rounded-2xl rounded-tl-none border max-w-[85%] w-fit mr-auto text-xs ${assistantBg}`}>
-                        <span className="animate-spin text-sm">🔍</span>
-                        <span className={`${subText} opacity-80`}>Searching the web...</span>
-                    </div>
-                )}
+                    {/* ── CHAT LOG ── */}
+                    {chatLog.map((msg, index) => {
+                        const isAssistant = msg.role === 'assistant';
+                        return (
+                            <div
+                                key={index}
+                                className={`flex flex-col gap-1.5 ${
+                                    isFullScreen ? 'max-w-[80%]' : 'max-w-[88%]'
+                                } ${isAssistant ? 'mr-auto items-start' : 'ml-auto items-end'}`}
+                            >
+                                <div
+                                    className={`flex items-center gap-1.5 px-1 font-pixel text-[9px] ${
+                                        isAssistant ? 'text-emerald-400' : 'text-[#4deeea]'
+                                    }`}
+                                >
+                                    <span>{isAssistant ? '🤖 HIYORI' : '👤 SWEETVN'}</span>
+                                </div>
 
-                {/* ── THINKING INDICATOR ── */}
-                {isThinking && !isSearching && (
-                    <div className={`flex gap-2 p-3 rounded-full animate-pulse border max-w-[80px] w-fit mr-auto justify-center ${assistantBg}`}>
-                        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-40 animate-bounce" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-60 animate-bounce delay-150" />
-                        <div className="w-1.5 h-1.5 rounded-full bg-current opacity-80 animate-bounce delay-300" />
-                    </div>
-                )}
+                                <div
+                                    className={`p-3 sm:p-3.5 rounded text-xs sm:text-sm leading-relaxed ${
+                                        isAssistant
+                                            ? 'mc-card text-slate-100 border-2 border-slate-700/80 shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
+                                            : 'bg-[#1b3a28] border-2 border-[#388e3c] text-emerald-100 shadow-[0_2px_8px_rgba(46,125,50,0.3)]'
+                                    }`}
+                                >
+                                    <p className="break-words whitespace-pre-wrap m-0 font-sans">{msg.content}</p>
+                                </div>
+                            </div>
+                        );
+                    })}
 
-                <div ref={messageEndRef} />
+                    {/* ── SEARCHING INDICATOR ── */}
+                    {isSearching && (
+                        <div className="mc-card p-3 rounded text-xs flex items-center gap-2 text-cyan-300 font-mono max-w-[85%] mr-auto border-cyan-500/40">
+                            <span className="animate-spin text-sm">🔍</span>
+                            <span>[DuckDuckGo] Đang tìm kiếm thông tin mới...</span>
+                        </div>
+                    )}
+
+                    {/* ── THINKING INDICATOR ── */}
+                    {isThinking && !isSearching && (
+                        <div className="mc-card p-2.5 px-4 rounded max-w-[120px] mr-auto flex items-center justify-center gap-2 border-emerald-500/40">
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-xs animate-bounce" />
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-xs animate-bounce delay-150" />
+                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-xs animate-bounce delay-300" />
+                            <span className="font-pixel text-[8px] text-emerald-400 ml-1">THINK</span>
+                        </div>
+                    )}
+
+                    <div ref={messageEndRef} />
+                </div>
             </div>
 
-            {/* ── INPUT ── */}
-            <div className="p-4 border-t backdrop-blur-xl border-white/10 bg-black/30">
-                <form className="relative flex items-center gap-2" onSubmit={handleSubmit}>
-                    <div className="relative grow">
+            {/* ── INPUT FORM (Centered ChatGPT/Gemini style bar) ── */}
+            <div className="p-3 sm:p-4 border-t-2 border-slate-800 bg-[#12161f]/95 select-none shrink-0">
+                <div className={`w-full ${isFullScreen ? 'max-w-3xl mx-auto' : ''}`}>
+                    <form
+                        className="flex items-center gap-2 bg-[#0d111a] border-2 border-slate-700/80 focus-within:border-emerald-400 p-1.5 pl-3.5 pr-2 rounded-xl transition-all shadow-inner"
+                        onSubmit={handleSubmit}
+                    >
                         <input
                             type="text"
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
-                            placeholder={disabled ? 'Chọn chat để bắt đầu...' : (isRecording ? 'Listening...' : 'Nói chuyện với mình đi...')}
+                            placeholder={
+                                disabled
+                                    ? 'Chọn phiên chat để bắt đầu...'
+                                    : isRecording
+                                    ? 'Listening to microphone...'
+                                    : 'Nhắn cho Hiyori (Hỏi đáp, tiếng Anh, tin tức)...'
+                            }
                             disabled={disabled}
-                            className={`w-full border-2 p-3 pl-4 pr-10 rounded-full text-sm outline-none transition-all focus:border-purple-400 ${inputBg}`}
+                            className="w-full bg-transparent text-slate-100 placeholder-slate-500 text-xs sm:text-sm font-mono outline-none"
                         />
                         {isRecording && (
-                            <div className="absolute right-4 top-1/2 -translate-y-1/2 flex gap-1">
-                                <div className="w-1 h-3 bg-red-500 animate-[voice-bar-1_0.6s_ease-in-out_infinite]" />
-                                <div className="w-1 h-5 bg-red-500 animate-[voice-bar-2_0.6s_ease-in-out_infinite_0.1s]" />
+                            <div className="flex items-center gap-1 shrink-0 px-1">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                                <span className="font-pixel text-[8px] text-red-400">REC</span>
                             </div>
                         )}
-                    </div>
 
-                    <button
-                        type="button"
-                        onClick={toggleRecording}
-                        disabled={disabled}
-                        className={`w-11 h-11 flex items-center justify-center rounded-full transition-all shadow-sm active:scale-95 backdrop-blur-md
-                            ${isRecording
-                                ? 'bg-red-500/80 text-white animate-pulse'
-                                : 'bg-white/20 hover:bg-white/30 text-white border border-white/20'
+                        {/* Microphone button */}
+                        <button
+                            type="button"
+                            onClick={toggleRecording}
+                            disabled={disabled}
+                            className={`px-2.5 py-1.5 rounded font-pixel text-xs transition-all shrink-0 ${
+                                isRecording
+                                    ? 'bg-red-700 hover:bg-red-600 text-white border-2 border-red-400 animate-pulse'
+                                    : 'mc-btn-stone'
                             }`}
-                    >
-                        {isRecording ? '⏹' : '🎤'}
-                    </button>
+                            title="Bật/Tắt Microphone (Giữ phím M)"
+                        >
+                            {isRecording ? '⏹' : '🎤'}
+                        </button>
 
-                    <button
-                        type="submit"
-                        disabled={disabled || !input.trim()}
-                        className="h-11 px-5 rounded-full bg-purple-600 text-white font-bold text-sm shadow-sm hover:bg-purple-700 active:translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                    >
-                        SEND
-                    </button>
-                </form>
-                <p className={`text-[9px] text-center mt-2 opacity-40 font-bold uppercase tracking-widest ${subText}`}>
-                    Hold [M] to talk • Enter to send
-                </p>
+                        {/* Send button */}
+                        <button
+                            type="submit"
+                            disabled={disabled || !input.trim()}
+                            className="mc-btn px-3.5 py-1.5 rounded font-pixel text-xs uppercase flex items-center gap-1 shrink-0"
+                        >
+                            <span>SEND</span>
+                            <span>🏹</span>
+                        </button>
+                    </form>
+
+                    <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 mt-2 px-1">
+                        <span>Hold [M] to talk</span>
+                        <span className="hidden sm:inline">Hiyori AI • Piper TTS • Live2D</span>
+                        <span>[Enter] to send</span>
+                    </div>
+                </div>
             </div>
         </div>
     );

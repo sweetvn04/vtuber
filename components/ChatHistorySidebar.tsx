@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 
 interface ChatItem {
     id: string;
@@ -27,127 +27,132 @@ const ChatHistorySidebar: React.FC<ChatHistorySidebarProps> = ({
     sessions = [],
     selectedSessionId,
     onDeleteSession,
-    isDarkMode = false,
+    isDarkMode = true,
     onToggleDarkMode,
     isTtsEnabled = true,
     onToggleTts,
 }) => {
-    // Không cần state isOpen nữa vì Sidebar được quản lý bởi layout cha (hidden lg:block)
-
-    const baseText = 'text-gray-100';
-    const subText = 'text-gray-300';
-    const activeBg = 'bg-purple-500/30 border-purple-400/40 backdrop-blur-sm';
-    const hoverBg = 'hover:bg-white/10';
-    const border = 'border-white/10';
-
     return (
-        <div className={`flex flex-col h-full ${baseText}`}>
+        <div className="flex flex-col h-full text-slate-200 font-sans select-none bg-[#0d111a]/95 backdrop-blur-xl border-r-2 border-slate-800">
             {/* Header */}
-            <div className={`p-4 pl-12 lg:pl-4 border-b flex justify-between items-center
-                border-white/10 bg-black/20 backdrop-blur-xl`}>
-                <h3 className="font-bold text-sm uppercase tracking-wider opacity-80 text-white">History</h3>
+            <div className="p-4 pl-12 lg:pl-4 border-b-2 border-slate-800 flex justify-between items-center bg-[#141a26]">
+                <div className="flex items-center gap-2">
+                    <span className="text-emerald-400 text-sm">📜</span>
+                    <h3 className="font-pixel text-xs text-emerald-400 tracking-wider uppercase">
+                        SESSIONS
+                    </h3>
+                </div>
                 <button
-                    className="p-2 rounded-full transition-colors flex items-center justify-center
-                        bg-purple-500/30 hover:bg-purple-500/50 text-purple-200 border border-purple-400/30"
+                    className="mc-btn px-2.5 py-1 rounded text-[10px] font-pixel uppercase flex items-center gap-1"
                     onClick={onNewChat}
-                    title="New Chat"
+                    title="Tạo cuộc trò chuyện mới"
                 >
-                    <span className="text-lg leading-none">+</span>
+                    <span>+</span>
+                    <span className="hidden sm:inline">NEW</span>
                 </button>
             </div>
 
-            {/* List */}
-            <div className="grow overflow-y-auto p-2 space-y-2 bg-transparent">
+            {/* Session List */}
+            <div className="grow overflow-y-auto p-3 space-y-2.5">
                 {sessions.length === 0 ? (
-                    <div className={`text-center py-10 px-4 text-xs ${subText}`}>
-                        <p>No chat history yet.</p>
-                        <p className="mt-1 opacity-70">Start a new conversation!</p>
+                    <div className="mc-card p-4 rounded text-center my-6">
+                        <p className="font-pixel text-[10px] text-slate-400 mb-2">NO DATA</p>
+                        <p className="text-xs text-slate-400">Chưa có lịch sử chat.</p>
+                        <p className="text-[11px] text-emerald-400 mt-2 font-mono">Bấm [+ NEW] để bắt đầu!</p>
                     </div>
                 ) : (
-                    sessions.map((chat) => (
-                        <div
-                            key={chat.id}
-                            className={`group relative p-3 rounded-xl border transition-all cursor-pointer ${selectedSessionId === chat.id
-                                    ? activeBg
-                                    : `border-transparent ${hoverBg}`
+                    sessions.map((chat) => {
+                        const isSelected = selectedSessionId === chat.id;
+                        return (
+                            <div
+                                key={chat.id}
+                                className={`group relative p-3 rounded transition-all cursor-pointer ${
+                                    isSelected
+                                        ? 'bg-[#1a2333] border-2 border-emerald-400/90 shadow-[0_0_12px_rgba(76,175,80,0.25)]'
+                                        : 'bg-[#141a26]/80 hover:bg-[#182030] border-2 border-slate-800/80 hover:border-slate-700'
                                 }`}
-                            onClick={() => onSelectChat && onSelectChat(chat)}
-                        >
-                            <div className="flex justify-between items-start mb-1">
-                                <h4 className={`font-semibold text-sm truncate pr-6 ${selectedSessionId === chat.id ? 'text-purple-200' : baseText
-                                    }`}>
-                                    {chat.title || 'Untitled Chat'}
-                                </h4>
-                                {selectedSessionId === chat.id && (
-                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 mt-1.5 shrink-0" />
-                                )}
+                                onClick={() => onSelectChat && onSelectChat(chat)}
+                            >
+                                <div className="flex justify-between items-start gap-2 mb-1.5">
+                                    <h4
+                                        className={`font-semibold text-xs truncate font-mono ${
+                                            isSelected ? 'text-emerald-300 font-bold' : 'text-slate-200'
+                                        }`}
+                                    >
+                                        {chat.title || 'Untitled Chat'}
+                                    </h4>
+                                    {isSelected && (
+                                        <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1 animate-ping" />
+                                    )}
+                                </div>
+
+                                <p className="text-[11px] truncate text-slate-400 mb-2 font-sans">
+                                    {chat.preview || 'No messages yet...'}
+                                </p>
+
+                                <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-800/60">
+                                    <span className="text-slate-400">
+                                        📅 {new Date(chat.created_at || Date.now()).toLocaleDateString()}
+                                    </span>
+
+                                    <button
+                                        className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 px-1.5 py-0.5 rounded bg-red-950/60 hover:bg-red-800 text-red-300 hover:text-white border border-red-700/50 transition-all text-[10px] font-pixel"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteSession && onDeleteSession(chat.id);
+                                        }}
+                                        title="Xóa cuộc trò chuyện này"
+                                    >
+                                        DEL
+                                    </button>
+                                </div>
                             </div>
-
-                            <p className={`text-xs truncate ${subText} opacity-80 mb-2`}>
-                                {chat.preview || 'No messages yet...'}
-                            </p>
-
-                            <div className="flex justify-between items-center">
-                                <span className={`text-[10px] ${subText} opacity-60`}>
-                                    {new Date(chat.created_at || Date.now()).toLocaleDateString()}
-                                </span>
-
-                                <button
-                                    className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 p-1.5 rounded-md text-red-300 hover:bg-red-500/20 hover:text-red-200 transition-all text-xs"
-                                    onClick={(e) => { e.stopPropagation(); onDeleteSession && onDeleteSession(chat.id); }}
-                                    title="Delete chat"
-                                >
-                                    🗑️
-                                </button>
-                            </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
             </div>
 
-            {/* Settings */}
-            <div className="border-t border-white/10 bg-black/20 backdrop-blur-xl">
-                <div className={`px-4 pt-3 pb-1 text-[10px] font-bold uppercase tracking-widest opacity-50 ${subText}`}>Settings</div>
-
-                {/* Dark Mode Toggle */}
-                <div className="flex items-center justify-between px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                        <span className="text-base">{isDarkMode ? '🌙' : '☀️'}</span>
-                        <span className={`text-xs font-medium ${subText}`}>Dark Mode</span>
-                    </div>
-                    <button
-                        onClick={onToggleDarkMode}
-                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 focus:outline-none
-                            ${isDarkMode ? 'bg-blue-500/70' : 'bg-white/30'}`}
-                        title="Toggle Dark Mode"
-                    >
-                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300
-                            ${isDarkMode ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
-                    </button>
+            {/* System Control Settings */}
+            <div className="border-t-2 border-slate-800 bg-[#12161f] p-3 space-y-2">
+                <div className="font-pixel text-[9px] text-emerald-400/80 uppercase tracking-widest px-1">
+                    CONTROLS
                 </div>
 
                 {/* TTS Voice Toggle */}
-                <div className="flex items-center justify-between px-4 py-2.5">
+                <div className="flex items-center justify-between px-2 py-1.5 rounded mc-card">
                     <div className="flex items-center gap-2">
-                        <span className="text-base">{isTtsEnabled ? '🔊' : '🔇'}</span>
-                        <span className={`text-xs font-medium ${subText}`}>Voice (TTS)</span>
+                        <span className="text-sm">{isTtsEnabled ? '🔊' : '🔇'}</span>
+                        <span className="text-xs font-mono text-slate-300">PIPER TTS</span>
                     </div>
                     <button
                         onClick={onToggleTts}
-                        className={`relative w-10 h-5 rounded-full transition-colors duration-300 focus:outline-none
-                            ${isTtsEnabled ? 'bg-purple-500/70' : 'bg-white/20'}`}
+                        className={`${
+                            isTtsEnabled ? 'mc-btn' : 'mc-btn-stone'
+                        } px-2.5 py-1 rounded text-[9px] font-pixel uppercase`}
                         title={isTtsEnabled ? 'Tắt giọng nói' : 'Bật giọng nói'}
                     >
-                        <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform duration-300
-                            ${isTtsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
-                        />
+                        {isTtsEnabled ? 'ON' : 'OFF'}
                     </button>
                 </div>
 
-                {/* Footer count */}
-                <div className={`px-4 pb-3 pt-1 text-[10px] text-center ${subText} opacity-50`}>
-                    {sessions.length} conversations stored
+                {/* Dark Mode Toggle */}
+                <div className="flex items-center justify-between px-2 py-1.5 rounded mc-card">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm">{isDarkMode ? '🌙' : '☀️'}</span>
+                        <span className="text-xs font-mono text-slate-300">THEME</span>
+                    </div>
+                    <button
+                        onClick={onToggleDarkMode}
+                        className="mc-btn-stone px-2.5 py-1 rounded text-[9px] font-pixel uppercase"
+                        title="Đổi giao diện"
+                    >
+                        {isDarkMode ? 'DARK' : 'LIGHT'}
+                    </button>
+                </div>
+
+                {/* Footer Count */}
+                <div className="pt-1 text-[9px] text-center font-pixel text-slate-400">
+                    <span className="text-emerald-400">{sessions.length}</span> LOGS STORED
                 </div>
             </div>
         </div>

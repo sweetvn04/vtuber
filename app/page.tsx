@@ -76,13 +76,14 @@ export default function Home() {
     // --- UI STATE ---
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [isChatFullScreen, setIsChatFullScreen] = useState(false);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false); // ẩn mặc định
+    const [isChatExpanded, setIsChatExpanded] = useState(false);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [isPipModelVisible, setIsPipModelVisible] = useState(true);
     const [viewportHeight, setViewportHeight] = useState<string>('100dvh');
 
     // --- RESIZE STATE ---
     const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT);
-    const [chatWidth, setChatWidth] = useState(CHAT_DEFAULT);
+    const [chatWidth, setChatWidth] = useState(480);
     const sidebarResizing = useRef(false);
     const chatResizing = useRef(false);
     const startX = useRef(0);
@@ -91,11 +92,23 @@ export default function Home() {
     // Biết đang desktop để chỉ áp dụng maxWidth trên desktop
     const [isDesktop, setIsDesktop] = useState(false);
     useEffect(() => {
-        const check = () => setIsDesktop(window.innerWidth >= 1024);
+        const check = () => {
+            const desk = window.innerWidth >= 1024;
+            setIsDesktop(desk);
+            if (!desk) setIsSidebarOpen(false);
+        };
         check();
         window.addEventListener('resize', check);
         return () => window.removeEventListener('resize', check);
     }, []);
+
+    // Tự động trigger resize cho PixiJS Canvas sau khi panel transition kết thúc
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            window.dispatchEvent(new Event('resize'));
+        }, 320);
+        return () => clearTimeout(timer);
+    }, [isSidebarOpen, isChatExpanded, isPipModelVisible]);
 
     // --- BACKEND HEALTH CHECK (ping độc lập với session) ---
     useEffect(() => {
@@ -341,8 +354,7 @@ export default function Home() {
     // ============================================================
     return (
         <div
-            className={`relative flex w-full overflow-hidden transition-colors duration-300
-                ${isDarkMode ? 'text-gray-100' : 'text-slate-800'}`}
+            className="relative flex flex-col w-full overflow-hidden text-slate-200 select-none"
             style={{
                 height: viewportHeight,
                 backgroundImage: 'url(/anime_bg.png)',
@@ -351,123 +363,217 @@ export default function Home() {
                 backgroundRepeat: 'no-repeat',
             }}
         >
-            {/* Overlay tối nhẹ để text/UI dễ đọc hơn */}
-            <div className={`absolute inset-0 pointer-events-none z-0
-                ${isDarkMode ? 'bg-black/45' : 'bg-black/20'}`}
-            />
+            {/* Dark Cyber Overlay */}
+            <div className="absolute inset-0 pointer-events-none z-0 bg-[#0d111a]/70 backdrop-blur-[2px]" />
 
+            {/* ── TOP NAVBAR (Standard ChatGPT / Gemini Header) ── */}
+            <header className="relative z-50 w-full bg-[#0d111a]/95 backdrop-blur-md border-b-2 border-slate-800 h-14 px-3 sm:px-4 flex items-center justify-between shrink-0">
+                {/* Left Brand & Sidebar Controls */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                    <button
+                        className="mc-btn-stone px-2.5 py-1.5 rounded text-xs font-pixel flex items-center gap-1.5"
+                        onClick={() =>
+                            isDesktop
+                                ? setIsSidebarOpen((prev) => !prev)
+                                : setIsMobileMenuOpen((prev) => !prev)
+                        }
+                        title={isSidebarOpen ? "Đóng danh sách chat" : "Mở danh sách chat"}
+                    >
+                        <span>☰</span>
+                    </button>
 
-            {/* ── MOBILE: MENU BUTTON ── */}
-            <button
-                className={`lg:hidden absolute top-4 left-4 z-50 p-2 rounded-full shadow-md
-                    ${isDarkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-700'}`}
-                onClick={() => setIsMobileMenuOpen(true)}
-            >☰</button>
+                    <button
+                        onClick={handleNewChat}
+                        className="mc-btn px-2.5 py-1.5 rounded text-[10px] font-pixel uppercase flex items-center gap-1"
+                        title="Tạo cuộc trò chuyện mới"
+                    >
+                        <span>+</span>
+                        <span className="hidden sm:inline">NEW</span>
+                    </button>
 
-            {/* ── MOBILE: BACKDROP ── */}
+                    <div className="font-pixel text-xs sm:text-sm text-emerald-400 flex items-center gap-1.5 ml-1">
+                        <span className="text-white">⛏️</span> sweetvn<span className="text-slate-500">/</span>hiyori.ai<span className="animate-pulse">_</span>
+                    </div>
+                </div>
+
+                {/* Center: Layout View Mode Switcher (Split vs Wide Chat) */}
+                <div className="hidden md:flex items-center bg-[#141a26] border-2 border-slate-700/80 rounded p-0.5">
+                    <button
+                        onClick={() => setIsChatExpanded(false)}
+                        className={`px-3 py-1 rounded text-[10px] font-pixel uppercase transition-all flex items-center gap-1.5 ${
+                            !isChatExpanded
+                                ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/50 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                        title="Chế độ chia đôi màn hình: Model Live2D + Chat"
+                    >
+                        <span>◫</span>
+                        <span>SPLIT VIEW</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            setIsChatExpanded(true);
+                            setIsPipModelVisible(true);
+                        }}
+                        className={`px-3 py-1 rounded text-[10px] font-pixel uppercase transition-all flex items-center gap-1.5 ${
+                            isChatExpanded
+                                ? 'bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/50 shadow-sm'
+                                : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                        title="Chế độ mở rộng Chat (Chuẩn ChatGPT/Gemini)"
+                    >
+                        <span>⊞</span>
+                        <span>WIDE CHAT</span>
+                    </button>
+                </div>
+
+                {/* Right controls */}
+                <div className="flex items-center gap-2 sm:gap-3">
+                    {/* Floating Model restore button when minimized */}
+                    {isChatExpanded && !isPipModelVisible && (
+                        <button
+                            onClick={() => setIsPipModelVisible(true)}
+                            className="mc-btn-stone px-2.5 py-1 rounded text-[10px] font-pixel text-emerald-400 flex items-center gap-1"
+                            title="Hiện lại model Hiyori"
+                        >
+                            <span>✨</span>
+                            <span className="hidden sm:inline">SHOW MODEL</span>
+                        </button>
+                    )}
+
+                    {/* Server status badge */}
+                    <div className="mc-card px-2.5 py-1 rounded text-[10px] font-pixel flex items-center gap-1.5">
+                        <span
+                            className={`w-2 h-2 rounded-full ${
+                                backendOnline === false
+                                    ? 'bg-red-500 animate-pulse'
+                                    : 'bg-emerald-400 animate-ping'
+                            }`}
+                        />
+                        <span className={backendOnline === false ? 'text-red-400' : 'text-emerald-400'}>
+                            {backendOnline === false ? 'OFFLINE' : 'ONLINE'}
+                        </span>
+                    </div>
+
+                    {/* Quick TTS toggle */}
+                    <button
+                        onClick={() => setIsTtsEnabled((prev) => !prev)}
+                        className={`hidden sm:flex ${
+                            isTtsEnabled ? 'mc-btn' : 'mc-btn-stone'
+                        } px-2.5 py-1 rounded text-[10px] font-pixel items-center gap-1`}
+                        title={isTtsEnabled ? 'Tắt Piper TTS' : 'Bật Piper TTS'}
+                    >
+                        <span>{isTtsEnabled ? '🔊' : '🔇'}</span>
+                        <span>{isTtsEnabled ? 'TTS ON' : 'TTS OFF'}</span>
+                    </button>
+                </div>
+            </header>
+
+            {/* ── MOBILE DRAWER BACKDROP ── */}
             {isMobileMenuOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
+                    className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm"
                     onClick={() => setIsMobileMenuOpen(false)}
                 />
             )}
 
-            {/* ══════════════════════════════════════
-                SIDEBAR
-                Mobile  : fixed, slide-in bằng translateX
-                Desktop : fixed overlay — KHÔNG chiếm flex flow
-                          → kéo rộng sidebar KHÔNG đẩy model
-            ══════════════════════════════════════ */}
-            <div
-                className={`overflow-hidden fixed inset-y-0 left-0 z-[55] backdrop-blur-xl
-                    ${isDarkMode ? 'bg-gray-900/60' : 'bg-white/50'}`}
-                style={{
-                    width: `${sidebarWidth}px`,
-                    // Mobile: ẩn/hiện bằng transform translateX
-                    // Desktop: ẩn/hiện bằng maxWidth (overflow-hidden sẽ clip)
-                    transform: !isDesktop
-                        ? (isMobileMenuOpen ? 'translateX(0)' : 'translateX(-100%)')
-                        : 'translateX(0)',
-                    maxWidth: isDesktop
-                        ? (isSidebarOpen ? `${sidebarWidth}px` : '0px')
-                        : `${sidebarWidth}px`,
-                    transition: isDesktop
-                        ? 'max-width 300ms ease-in-out'
-                        : 'transform 300ms ease-in-out',
-                    boxShadow: isSidebarOpen ? '4px 0 20px rgba(0,0,0,0.18)' : 'none',
-                    borderRight: isSidebarOpen
-                        ? `1px solid ${isDarkMode ? '#374151' : '#e5e7eb'}`
-                        : 'none',
-                }}
-            >
-                {/* Inner: giữ nguyên width để content không méo khi animate */}
-                <div className="h-full relative" style={{ width: `${sidebarWidth}px` }}>
-                    {/* Mobile close button */}
-                    <button
-                        className="lg:hidden absolute top-5 left-4 z-50 text-xl font-bold opacity-60 hover:opacity-100"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                    >✕</button>
-
-                    <ChatHistorySidebar
-                        sessions={sessions}
-                        selectedSessionId={selectedSessionId}
-                        onSelectChat={(chat: any) => { setSelectedSessionId(chat.id); setIsMobileMenuOpen(false); }}
-                        onNewChat={() => { handleNewChat(); setIsMobileMenuOpen(false); }}
-                        onDeleteSession={handleDeleteSession}
-                        isDarkMode={isDarkMode}
-                        onToggleDarkMode={toggleTheme}
-                        isTtsEnabled={isTtsEnabled}
-                        onToggleTts={() => setIsTtsEnabled(prev => !prev)}
-                    />
-                </div>
-
-                {/* Sidebar resize handle — cạnh phải, chỉ desktop khi mở */}
-                {isDesktop && isSidebarOpen && (
-                    <div
-                        onMouseDown={onSidebarResizeStart}
-                        className={`absolute top-0 right-0 w-1.5 h-full cursor-col-resize group z-10
-                            ${isDarkMode ? 'hover:bg-blue-500' : 'hover:bg-blue-400'} transition-colors`}
-                        title="Kéo để thay đổi chiều rộng sidebar"
-                    >
-                        <div className={`absolute top-1/2 -translate-y-1/2 w-0.5 h-8 rounded-full
-                            opacity-0 group-hover:opacity-100 transition-opacity
-                            ${isDarkMode ? 'bg-white' : 'bg-gray-600'}`}
+            {/* ── WORKSPACE BODY (Standard Flex Layout) ── */}
+            <div className="relative flex-1 flex w-full min-h-0 overflow-hidden">
+                {/* ── DESKTOP SIDEBAR (Collapsible like ChatGPT / Gemini) ── */}
+                <div
+                    className={`hidden lg:block h-full transition-[width,opacity] duration-300 ease-in-out shrink-0 overflow-hidden ${
+                        isSidebarOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'
+                    }`}
+                >
+                    <div className="w-64 h-full">
+                        <ChatHistorySidebar
+                            sessions={sessions}
+                            selectedSessionId={selectedSessionId}
+                            onSelectChat={(chat: any) => setSelectedSessionId(chat.id)}
+                            onNewChat={handleNewChat}
+                            onDeleteSession={handleDeleteSession}
+                            isDarkMode={isDarkMode}
+                            onToggleDarkMode={toggleTheme}
+                            isTtsEnabled={isTtsEnabled}
+                            onToggleTts={() => setIsTtsEnabled((prev) => !prev)}
                         />
                     </div>
-                )}
-            </div>
+                </div>
 
-            {/* ══════════════════════════════════════
-                MAIN CONTENT
-                Luôn full-width. Sidebar overlay ở trên, không đẩy content.
-            ══════════════════════════════════════ */}
-            <div className="flex-1 flex flex-col lg:flex-row relative min-w-0 overflow-hidden">
-
-                {/* Toggle button desktop — bám cạnh phải của sidebar */}
-                <button
-                    onClick={() => setIsSidebarOpen(prev => !prev)}
-                    className={`hidden lg:flex items-center justify-center
-                        absolute top-1/2 -translate-y-1/2 z-[60]
-                        h-14 w-5 rounded-r-lg shadow-lg
-                        hover:w-6 active:scale-95
-                        ${isDarkMode
-                            ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}
-                    `}
-                    style={{
-                        left: isDesktop && isSidebarOpen ? `${sidebarWidth}px` : '0px',
-                        transition: 'left 300ms ease-in-out, width 150ms',
-                    }}
-                    title={isSidebarOpen ? 'Ẩn History' : 'Hiện History'}
+                {/* ── MOBILE SIDEBAR DRAWER ── */}
+                <div
+                    className={`lg:hidden fixed inset-y-0 left-0 z-[55] w-72 h-full transition-transform duration-300 ease-in-out ${
+                        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+                    }`}
                 >
-                    <span className="text-[10px] font-bold select-none">
-                        {isSidebarOpen ? '◀' : '▶'}
-                    </span>
-                </button>
+                    <div className="w-full h-full relative">
+                        <button
+                            className="absolute top-4 right-4 z-50 text-sm font-pixel text-slate-400 hover:text-white"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                            ✕
+                        </button>
+                        <ChatHistorySidebar
+                            sessions={sessions}
+                            selectedSessionId={selectedSessionId}
+                            onSelectChat={(chat: any) => {
+                                setSelectedSessionId(chat.id);
+                                setIsMobileMenuOpen(false);
+                            }}
+                            onNewChat={() => {
+                                handleNewChat();
+                                setIsMobileMenuOpen(false);
+                            }}
+                            onDeleteSession={handleDeleteSession}
+                            isDarkMode={isDarkMode}
+                            onToggleDarkMode={toggleTheme}
+                            isTtsEnabled={isTtsEnabled}
+                            onToggleTts={() => setIsTtsEnabled((prev) => !prev)}
+                        />
+                    </div>
+                </div>
 
-                {/* ── MODEL AREA — trong suốt để nền xuyên qua ── */}
-                <div className="relative shrink-0 h-[40vh] lg:h-full lg:flex-1 lg:shrink overflow-hidden">
-                    <div className="w-full h-full">
+                {/* ── LIVE2D MODEL STAGE (Full Stage in Split Mode, Floating PiP in Wide Chat Mode) ── */}
+                <div
+                    className={
+                        isChatExpanded
+                            ? `fixed bottom-24 right-6 z-40 w-52 h-72 rounded-xl overflow-hidden mc-card border-2 border-emerald-400 shadow-[0_8px_32px_rgba(0,0,0,0.8)] transition-all duration-300 ${
+                                  isPipModelVisible
+                                      ? 'scale-100 opacity-100'
+                                      : 'scale-75 opacity-0 pointer-events-none'
+                              }`
+                            : `relative shrink-0 h-[38vh] lg:h-full lg:flex-1 lg:shrink overflow-hidden flex flex-col transition-all duration-300`
+                    }
+                >
+                    {/* Mini PiP Header when chat is expanded */}
+                    {isChatExpanded && (
+                        <div className="absolute top-0 left-0 right-0 z-30 bg-[#141a26]/90 border-b border-slate-700/80 px-2.5 py-1.5 flex justify-between items-center text-[9px] font-pixel text-emerald-400 select-none">
+                            <div className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                <span>HIYORI PiP</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <button
+                                    onClick={() => setIsChatExpanded(false)}
+                                    className="hover:text-white px-1 text-[11px]"
+                                    title="Quay lại Chia đôi màn hình (Split View)"
+                                >
+                                    ◫
+                                </button>
+                                <button
+                                    onClick={() => setIsPipModelVisible(false)}
+                                    className="hover:text-red-400 px-1 text-[11px]"
+                                    title="Thu nhỏ model"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Live2D Canvas - ALWAYS MOUNTED & RUNNING */}
+                    <div className="w-full h-full relative">
                         <VtuberModelDisplay
                             status={status}
                             audioUrl={currentAudioUrl}
@@ -475,56 +581,66 @@ export default function Home() {
                             toggleTheme={toggleTheme}
                             onModelClick={handleModelClick}
                         />
-                    </div>
 
-                    {/* ── SPEECH BUBBLE POPUP khi click model ── */}
-                    {modelReaction && (
-                        <div className="absolute bottom-[62%] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-                            <div
-                                style={{ animation: 'bubbleIn 0.25s ease-out' }}
-                                className="relative px-4 py-3 rounded-2xl text-sm font-medium text-white
-                                    bg-black/60 backdrop-blur-xl border border-white/20 shadow-2xl
-                                    max-w-[220px] text-center leading-snug whitespace-pre-wrap"
-                            >
-                                {modelReaction}
-                                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2
-                                    border-l-8 border-r-8 border-t-8
-                                    border-l-transparent border-r-transparent border-t-white/20" />
-                                <span className="absolute -bottom-[7px] left-1/2 -translate-x-1/2
-                                    border-l-[7px] border-r-[7px] border-t-[7px]
-                                    border-l-transparent border-r-transparent border-t-black/60" />
+                        {/* Top-left HUD badge (chỉ hiện khi ở Stage lớn) */}
+                        {!isChatExpanded && (
+                            <div className="absolute top-3 left-4 z-20 mc-card p-2 px-3 rounded flex items-center gap-2 pointer-events-none text-[10px] font-mono select-none">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="font-pixel text-emerald-400">HIYORI</span>
+                                <span className="text-slate-400 hidden sm:inline">| CUBISM ENGINE</span>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Bottom-left EXP Bar (chỉ hiện khi ở Stage lớn) */}
+                        {!isChatExpanded && (
+                            <div className="absolute bottom-4 left-4 z-20 mc-card p-3 rounded pointer-events-none hidden sm:block max-w-xs text-[10px] font-mono select-none">
+                                <div className="flex justify-between items-center text-[9px] font-pixel text-slate-400 mb-1.5">
+                                    <span className="text-emerald-400">AI CORE STATS</span>
+                                    <span className="text-[#4deeea]">LVL 3.59</span>
+                                </div>
+                                <div className="w-40 bg-slate-950 h-2.5 rounded-xs border border-slate-700 p-0.5 overflow-hidden">
+                                    <div className="exp-bar h-full w-full rounded-xs"></div>
+                                </div>
+                                <div className="text-[9px] text-slate-400 mt-1.5 font-mono">
+                                    Voice: Piper TTS • LLM: Gemini
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Speech Bubble Popup */}
+                        {modelReaction && (
+                            <div className="absolute bottom-[62%] left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+                                <div
+                                    style={{ animation: 'bubbleIn 0.25s ease-out' }}
+                                    className="mc-card p-3 px-4 rounded text-xs font-mono text-emerald-200 border-2 border-emerald-400 shadow-[0_0_16px_rgba(76,175,80,0.5)] max-w-[240px] text-center leading-snug whitespace-pre-wrap"
+                                >
+                                    <div className="font-pixel text-[8px] text-emerald-400 mb-1">HIYORI:</div>
+                                    {modelReaction}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
-                {/* Chat Resize Handle */}
-                <div
-                    onMouseDown={onChatResizeStart}
-                    className={`hidden lg:flex items-center justify-center w-1.5 flex-shrink-0
-                        cursor-col-resize group z-10
-                        ${isDarkMode ? 'bg-white/10 hover:bg-blue-500/60' : 'bg-black/10 hover:bg-blue-400/60'}
-                        backdrop-blur-sm transition-colors`}
-                    title="Kéo để thay đổi chiều rộng chat"
-                >
-                    <div className={`w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity
-                        ${isDarkMode ? 'bg-white' : 'bg-gray-600'}`}
-                    />
-                </div>
+                {/* ── DRAG RESIZE HANDLE (chỉ có trong Split View trên desktop) ── */}
+                {!isChatExpanded && (
+                    <div
+                        onMouseDown={onChatResizeStart}
+                        className="hidden lg:flex items-center justify-center w-2 flex-shrink-0 cursor-col-resize group z-10 bg-slate-900/60 hover:bg-emerald-500/80 border-x border-slate-800 transition-colors select-none"
+                        title="Kéo để thay đổi chiều rộng chat"
+                    >
+                        <div className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity bg-emerald-400" />
+                    </div>
+                )}
 
-                {/* ── CHAT AREA ── */}
+                {/* ── CHAT INTERFACE PANE (Standard ChatGPT / Gemini Flex container) ── */}
                 <div
-                    className={`flex flex-col min-h-0 border-t lg:border-t-0 lg:border-l flex-shrink-0
-                        transition-all duration-300 ease-in-out backdrop-blur-xl
-                        ${isDarkMode
-                            ? 'bg-gray-900/65 border-white/10'
-                            : 'bg-white/55 border-white/30'
-                        }
-                        ${isChatFullScreen
-                            ? 'fixed inset-0 z-[100] w-full h-full !border-0'
-                            : 'flex-1 lg:flex-none lg:h-full'
-                        }`}
-                    style={!isChatFullScreen ? { width: `${chatWidth}px` } : {}}
+                    className={`flex flex-col min-h-0 border-t-2 lg:border-t-0 ${
+                        !isChatExpanded ? 'lg:border-l-2 border-slate-800' : ''
+                    } flex-shrink-0 transition-[width,flex] duration-300 ease-in-out bg-[#0d111a]/85 backdrop-blur-xl ${
+                        isChatExpanded ? 'flex-1 w-full h-full' : 'flex-1 lg:flex-none lg:h-full'
+                    }`}
+                    style={!isChatExpanded && isDesktop ? { width: `${chatWidth}px` } : {}}
                 >
                     <ChatInterface
                         chatLog={chatLog}
@@ -533,13 +649,18 @@ export default function Home() {
                         isThinking={isThinking}
                         isSearching={isSearching}
                         isDarkMode={isDarkMode}
-                        isFullScreen={isChatFullScreen}
-                        onToggleFullScreen={() => setIsChatFullScreen(prev => !prev)}
+                        isFullScreen={isChatExpanded}
+                        onToggleFullScreen={() => {
+                            setIsChatExpanded((prev) => {
+                                const nextState = !prev;
+                                if (nextState) setIsPipModelVisible(true);
+                                return nextState;
+                            });
+                        }}
                         backendOnline={backendOnline}
                         modelReaction={modelReaction}
                     />
                 </div>
-
             </div>
 
             {/* Hidden webcam canvas */}
@@ -547,3 +668,4 @@ export default function Home() {
         </div>
     );
 }
+

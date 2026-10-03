@@ -150,7 +150,11 @@ app = FastAPI()
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3001",
     "https://localhost:3000",
+    "https://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
     "http://localhost:5173",
     "http://vtuber.sweetvn2004.id.vn",
     "https://vtuber.sweetvn2004.id.vn",
@@ -189,9 +193,94 @@ async def verify_api_key(request: Request, call_next):
 async def list_sessions():
     return history_store.get_sessions()
 
+# --- GEMINI MODEL FALLBACK SYSTEM ---
+DEFAULT_FALLBACK_MODELS = [
+    "models/gemini-3.8-flash",
+    "models/gemini-3.5-flash",
+    "models/gemini-3.1-flash-lite",
+    "models/gemini-flash-latest",
+    "models/gemini-2.5-flash",
+    "models/gemini-2.0-flash",
+    "models/gemini-1.5-flash",
+    "models/gemma-4-26b-a4b-it",
+]
+
+env_models_str = os.getenv("GEMINI_MODELS") or os.getenv("GEMINI_MODEL") or ""
+if env_models_str:
+    FALLBACK_MODELS = [
+        (m.strip() if m.strip().startswith("models/") else f"models/{m.strip()}")
+        for m in env_models_str.split(",")
+        if m.strip()
+    ]
+    for dm in DEFAULT_FALLBACK_MODELS:
+        if dm not in FALLBACK_MODELS:
+            FALLBACK_MODELS.append(dm)
+else:
+    FALLBACK_MODELS = list(DEFAULT_FALLBACK_MODELS)
+
+_active_chat_model = FALLBACK_MODELS[0]
+_active_transcribe_model = FALLBACK_MODELS[0]
+
+async def send_chat_message_with_fallback(history_for_gemini: list, message_to_send: str) -> tuple[str, str]:
+    """
+    Thử lần lượt các model trong danh sách fallback.
+    Nếu model nào thành công sẽ lưu lại làm active model để giảm latency cho các lần sau.
+    """
+    global _active_chat_model
+    models_to_try = [_active_chat_model] + [m for m in FALLBACK_MODELS if m != _active_chat_model]
+    
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            print(f"[Gemini Chat] Trying model: {model_name}...")
+            model = genai.GenerativeModel(model_name=model_name)
+            chat = model.start_chat(history=history_for_gemini)
+            response = await chat.send_message_async(message_to_send)
+            if response and response.text:
+                if model_name != _active_chat_model:
+                    print(f"[Gemini Chat] ✅ Switched active chat model to: {model_name}")
+                    _active_chat_model = model_name
+                return response.text, model_name
+        except Exception as e:
+            print(f"[Gemini Chat] ⚠️ Model '{model_name}' failed: {e}")
+            last_error = e
+
+    raise last_error or RuntimeError("All candidate Gemini chat models failed.")
+
+async def transcribe_audio_with_fallback(mime: str, audio_bytes: bytes) -> str:
+    """
+    Transcribe audio với cơ chế fallback qua nhiều model.
+    """
+    global _active_transcribe_model
+    models_to_try = [_active_transcribe_model] + [m for m in FALLBACK_MODELS if m != _active_transcribe_model]
+    
+    prompt = "Hãy transcribe chính xác những gì được nói trong đoạn audio này. Chỉ trả về text, không thêm bất kỳ giải thích nào."
+    audio_content = {
+        "mime_type": mime,
+        "data": base64.b64encode(audio_bytes).decode("utf-8"),
+    }
+    
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            print(f"[Transcribe] Trying model: {model_name}...")
+            model = genai.GenerativeModel(model_name=model_name)
+            response = await model.generate_content_async([audio_content, prompt])
+            if response and response.text:
+                text = response.text.strip()
+                if model_name != _active_transcribe_model:
+                    print(f"[Transcribe] ✅ Switched active transcribe model to: {model_name}")
+                    _active_transcribe_model = model_name
+                return text
+        except Exception as e:
+            print(f"[Transcribe] ⚠️ Model '{model_name}' failed: {e}")
+            last_error = e
+
+    raise last_error or RuntimeError("All candidate transcribe models failed.")
+
 @app.post("/api/transcribe")
 async def transcribe_audio(audio: UploadFile = File(...)):
-    """Nhận file audio từ trình duyệt, dùng Gemini để transcribe thành text."""
+    """Nhận file audio từ trình duyệt, dùng Gemini để transcribe thành text với fallback."""
     try:
         audio_bytes = await audio.read()
         if not audio_bytes:
@@ -208,17 +297,7 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
         print(f"[Transcribe] Received {len(audio_bytes)} bytes, mime={mime}")
 
-        # Gửi lên Gemini để transcribe
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        response = model.generate_content([
-            {
-                "mime_type": mime,
-                "data": base64.b64encode(audio_bytes).decode("utf-8"),
-            },
-            "Hãy transcribe chính xác những gì được nói trong đoạn audio này. Chỉ trả về text, không thêm bất kỳ giải thích nào."
-        ])
-
-        text = response.text.strip() if response.text else ""
+        text = await transcribe_audio_with_fallback(mime, audio_bytes)
         print(f"[Transcribe] Result: {repr(text)}")
         return {"text": text}
 
@@ -271,9 +350,6 @@ async def chat_endpoint(
     if not session_data:
         await websocket.close(code=1008)
         return
-
-    # Khởi tạo model đơn giản (Gemma 3 không hỗ trợ system_instruction trực tiếp)
-    model = genai.GenerativeModel(model_name="models/gemma-3-4b-it")
 
     system_prompt = """
     ROLE: You are Hiyori, a high-tech AI VTuber created by 'sweet'.
@@ -351,13 +427,18 @@ async def chat_endpoint(
                     role = "user" if m["role"] == "user" else "model"
                     history_for_gemini.append({"role": role, "parts": [m["content"]]})
                 
-                # Khởi tạo chat với history đã được mồi prompt
-                chat = model.start_chat(history=history_for_gemini)
-
-                # Gửi câu chat hiện tại (kèm search context nếu có)
+                # Gửi câu chat hiện tại (kèm search context nếu có) với cơ chế fallback
                 message_to_send = user_text + search_context
-                response = await chat.send_message_async(message_to_send)
-                ai_text = response.text
+                try:
+                    ai_text, used_model = await send_chat_message_with_fallback(history_for_gemini, message_to_send)
+                except Exception as gen_err:
+                    print(f"[Chat Error] All fallback models failed: {gen_err}")
+                    error_msg = f"Sorry sweetvn, I couldn't reach Gemini right now ({str(gen_err)[:100]})."
+                    await websocket.send_json({
+                        "type": "AI_RESPONSE_TEXT",
+                        "payload": error_msg
+                    })
+                    continue
                 
                 # Lưu câu trả lời của AI vào store
                 history_store.add_message(session_id, "assistant", ai_text)
