@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 
 /* ── DESIGN TOKENS ── */
 :root {
@@ -39,7 +39,7 @@
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
@@ -62,7 +62,7 @@ body::before {
 
 /* ── FONTS ── */
 .font-mono {
-  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  font-family: var(--font-jetbrains-mono), 'Fira Code', ui-monospace, monospace;
 }
 
 /* ── GLASS CARD ── */

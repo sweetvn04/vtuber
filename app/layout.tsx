@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -26,7 +29,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
+        style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}
       >
         <Script src="/live2d/live2d.min.js" strategy="beforeInteractive" />
         <Script src="/live2d/live2dcubismcore.min.js" strategy="beforeInteractive" />
