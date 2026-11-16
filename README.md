@@ -4,9 +4,9 @@
 
 ## 🎬 Demo
 
-[Xem video demo Sweet VTuber (MP4, 22 giây)](docs/demo/Sweet_VTuber_Demo.mp4) · [Mở ứng dụng](https://vtuber.sweetvn.io.vn)
+![Hiyori trả lời tin nhắn và nhép miệng theo giọng Piper](docs/demo/Sweet_VTuber_Preview.gif)
 
-Video ghi lại một lượt chat với Hiyori, từ lúc gửi câu hỏi đến khi nhân vật trả lời bằng chữ, phát giọng Piper và nhép miệng theo âm thanh.
+[Tải video có tiếng (MP4, 22 giây)](https://raw.githubusercontent.com/sweetvn04/vtuber/main/docs/demo/Sweet_VTuber_Demo.mp4) · [Mở ứng dụng](https://vtuber.sweetvn.io.vn)
 
 ## ✨ Tính năng nổi bật
 
