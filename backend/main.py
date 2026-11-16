@@ -156,8 +156,8 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://localhost:5173",
-    "http://vtuber.sweetvn2004.id.vn",
-    "https://vtuber.sweetvn2004.id.vn",
+    "http://vtuber.sweetvn.io.vn",
+    "https://vtuber.sweetvn.io.vn",
 ]
 
 app.add_middleware(
@@ -228,7 +228,7 @@ async def send_chat_message_with_fallback(history_for_gemini: list, message_to_s
     """
     global _active_chat_model
     models_to_try = [_active_chat_model] + [m for m in FALLBACK_MODELS if m != _active_chat_model]
-    
+
     last_error = None
     for model_name in models_to_try:
         try:
@@ -253,13 +253,13 @@ async def transcribe_audio_with_fallback(mime: str, audio_bytes: bytes) -> str:
     """
     global _active_transcribe_model
     models_to_try = [_active_transcribe_model] + [m for m in FALLBACK_MODELS if m != _active_transcribe_model]
-    
+
     prompt = "Hãy transcribe chính xác những gì được nói trong đoạn audio này. Chỉ trả về text, không thêm bất kỳ giải thích nào."
     audio_content = {
         "mime_type": mime,
         "data": base64.b64encode(audio_bytes).decode("utf-8"),
     }
-    
+
     last_error = None
     for model_name in models_to_try:
         try:
@@ -344,7 +344,7 @@ async def chat_endpoint(
         return
 
     await websocket.accept()
-    
+
     # Lấy lịch sử chat từ store
     session_data = history_store.get_history(session_id)
     if not session_data:
@@ -353,13 +353,13 @@ async def chat_endpoint(
 
     system_prompt = """
     ROLE: You are Hiyori, a high-tech AI VTuber created by 'sweet'.
-    
+
     PERSONALITY:
     - You are cute AI assistant.
-    
+
     SPEAKING STYLE:
     1. SIMPLE ENGLISH: Use short sentences so 'sweet' can learn English.
-    
+
     IMPORTANT RULES:
     - NEVER say you are an AI language model. You are a real Anime Girl living in the computer.
     - Always answer in ENGLISH ONLY.
@@ -368,7 +368,7 @@ async def chat_endpoint(
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            
+
             if message["type"] == "TEXT_MESSAGE":
                 user_text = message["payload"]
                 # Đọc flag TTS từ client (mặc định True nếu không có)
@@ -411,7 +411,7 @@ async def chat_endpoint(
 
                 # Lưu tin nhắn user vào store (lưu text gốc, không lưu context search)
                 history_store.add_message(session_id, "user", user_text)
-                
+
                 # Lấy lịch sử để chuẩn bị gửi cho Gemini
                 session_data = history_store.get_history(session_id)
                 current_history = session_data["history"]
@@ -426,7 +426,7 @@ async def chat_endpoint(
                 for m in current_history[:-1]:
                     role = "user" if m["role"] == "user" else "model"
                     history_for_gemini.append({"role": role, "parts": [m["content"]]})
-                
+
                 # Gửi câu chat hiện tại (kèm search context nếu có) với cơ chế fallback
                 message_to_send = user_text + search_context
                 try:
@@ -439,7 +439,7 @@ async def chat_endpoint(
                         "payload": error_msg
                     })
                     continue
-                
+
                 # Lưu câu trả lời của AI vào store
                 history_store.add_message(session_id, "assistant", ai_text)
 
@@ -455,28 +455,28 @@ async def chat_endpoint(
                     try:
                         # PIPELINE: TTS -> RVC -> BASE64
                         temp_wav = os.path.join(os.path.dirname(__file__), f"temp_{int(datetime.now().timestamp())}.wav")
-                        
+
                         # 1. TTS: Sinh file WAV gốc từ Piper
                         if tts.generate_wav_file(ai_text, temp_wav):
                             final_wav = temp_wav
-                            
+
                             # 2. RVC: Chuyển đổi giọng (nếu có model)
                             if rvc.enabled:
                                 rvc_wav = temp_wav.replace(".wav", "_rvc.wav")
                                 if rvc.convert_audio(temp_wav, rvc_wav, pitch_up_key=RVC_PITCH_SHIFT):
                                     final_wav = rvc_wav
-                            
+
                             # 3. Mã hóa Base64 để gửi về frontend
                             with open(final_wav, "rb") as f:
                                 audio_base64 = base64.b64encode(f.read()).decode("utf-8")
-                                
+
                             # Cleanup file tạm
                             if os.path.exists(temp_wav): os.remove(temp_wav)
                             if os.path.exists(final_wav) and final_wav != temp_wav: os.remove(final_wav)
 
                         if not audio_base64:
                             print("Audio generation failed or empty")
-                            
+
                     except Exception as tts_err:
                         print(f"Lỗi TTS Pipeline: {tts_err}")
 
