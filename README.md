@@ -2,6 +2,12 @@
 
 **Sweet VTuber** là một ứng dụng VTuber ảo tích hợp trí tuệ nhân tạo (AI), cho phép người dùng trò chuyện trực tiếp với nhân vật Live2D thông qua giọng nói và văn bản. Dự án kết hợp sức mạnh của Google Gemini để xử lý hội thoại và Piper TTS để mang lại giọng nói tự nhiên, sinh động.
 
+## 🎬 Demo
+
+[Xem video demo Sweet VTuber (MP4, 22 giây)](docs/demo/Sweet_VTuber_Demo.mp4) · [Mở ứng dụng](https://vtuber.sweetvn.io.vn)
+
+Video ghi lại một lượt chat với Hiyori, từ lúc gửi câu hỏi đến khi nhân vật trả lời bằng chữ, phát giọng Piper và nhép miệng theo âm thanh.
+
 ## ✨ Tính năng nổi bật
 
 *   **Nhân vật Live2D Tương tác:** Hiển thị model Live2D (Hiyori) với hiệu ứng chuyển động và lip-sync khớp với giọng nói.
